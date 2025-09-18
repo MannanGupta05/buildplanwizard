@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block title %}Change City - Map Analysis System{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Enhanced city page specific styles */
+    .city-hero {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        border-radius: 24px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(20px);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .city-hero::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+        animation: heroGlow 8s ease-in-out infinite;
+    }
+
+    @keyframes heroGlow {
+        0%, 100% { transform: rotate(0deg) scale(1); opacity: 0.5; }
+        50% { transform: rotate(180deg) scale(1.1); opacity: 0.8; }
+    }
+
+    .city-selector {
+        position: relative;
+        z-index: 10;
+    }
+
+    .city-icon {
+        font-size: 3rem;
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: iconPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes iconPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+
+    .current-city-badge {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+        animation: badgeGlow 3s ease-in-out infinite;
+    }
+
+    @keyframes badgeGlow {
+        0%, 100% { box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3); }
+        50% { box-shadow: 0 12px 35px rgba(16, 185, 129, 0.5); }
+    }
+
+    .form-select-enhanced {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 1rem 1.25rem;
+        color: var(--text-primary);
+        font-weight: 500;
+        transition: all 0.3s ease;
+        position: relative;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 1rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+        padding-right: 3rem;
+    }
+
+    .form-select-enhanced:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .form-select-enhanced option {
+        background: rgba(255, 255, 255, 0.95);
+        color: var(--text-primary);
+        padding: 0.5rem;
+    }
+
+    .city-benefits {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%);
+        border-radius: 20px;
+        padding: 1.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(15px);
+        margin-top: 1.5rem;
+    }
+
+    .benefit-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem 0;
+        transition: all 0.3s ease;
+    }
+
+    .benefit-item:hover {
+        transform: translateX(10px);
+    }
+
+    .benefit-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--primary-gradient);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.1rem;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .action-buttons {
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+
+    .btn-update {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border: none;
+        border-radius: 16px;
+        padding: 1rem 2rem;
+        color: white;
+        font-weight: 600;
+        font-size: 1.1rem;
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-update:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 15px 40px rgba(16, 185, 129, 0.4);
+        color: white;
+    }
+
+    .btn-back {
+        background: rgba(107, 114, 128, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        padding: 1rem 2rem;
+        color: var(--text-primary);
+        font-weight: 600;
+        font-size: 1.1rem;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+    }
+
+    .btn-back:hover {
+        background: rgba(107, 114, 128, 0.2);
+        transform: translateY(-2px);
+        color: var(--text-primary);
+    }
+
+    /* City illustration */
+    .city-illustration {
+        position: absolute;
+        top: 20%;
+        right: 5%;
+        opacity: 0.1;
+        font-size: 8rem;
+        color: var(--primary-color);
+        animation: float 6s ease-in-out infinite;
+        z-index: 1;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-20px); }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .city-hero {
+            padding: 1.5rem;
+        }
+        
+        .city-icon {
+            font-size: 2rem;
+        }
+        
+        .city-illustration {
+            display: none;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .btn-update, .btn-back {
+            width: 100%;
+        }
+    }
+
+    /* Loading animation for form submission */
+    .loading {
+        position: relative;
+        pointer-events: none;
+    }
+
+    .loading::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 20px;
+        height: 20px;
+        margin: -10px 0 0 -10px;
+        border: 2px solid transparent;
+        border-top: 2px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    #visible-text {
+        color: rgba(203, 171, 44, 0.85);  /* High contrast on purple */
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="city-illustration">
+    <i class="fas fa-city"></i>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <!-- Hero Section -->
+        <div class="city-hero text-center">
+            <div class="city-selector">
+                <i class="fas fa-map-marker-alt city-icon mb-3"></i>
+                <h2 class="mb-3" style="background: var(--primary-gradient); -webkit-background-clip: text;  background-clip: text; font-weight: 700;">
+                    Change Your City
+                </h2>
+                <p class="mb-4" id="visible-text">Update your location for accurate compliance analysis</p>
+                
+                <div class="current-city-badge">
+                    <i class="fas fa-location-dot"></i>
+                    Currently in: {{ current_city }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Form Card -->
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" id="cityForm">
+                    <div class="mb-4">
+                        <label for="city" class="form-label" style="font-size: 1.1rem; font-weight: 600;">
+                            <i class="fas fa-building me-2"></i>Select New City
+                        </label>
+                        <select class="form-select-enhanced" id="city" name="city" required>
+                            <option value="">🏙️ Choose your city...</option>
+                            {% for city in cities %}
+                            <option value="{{ city }}" {% if city == current_city %}selected{% endif %}>
+                                📍 {{ city }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <br>
+                        <small class="form-text text-muted mt-2">
+                            <i class="fas fa-info-circle me-1"></i>
+                            This location will be used for building codes and compliance analysis.
+                        </small>
+                    </div>
+                    
+                    <div class="d-flex action-buttons">
+                        <button type="submit" class="btn btn-update flex-fill" id="updateBtn">
+                            <i class="fas fa-save me-2"></i> Update City
+                        </button>
+                        <a href="{{ url_for('welcome') }}" class="btn btn-back flex-fill">
+                            <i class="fas fa-arrow-left me-2"></i> Back to Welcome
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Benefits Section -->
+        <div class="city-benefits">
+            <h5 class="mb-3" style="color: var(--text-primary); font-weight: 600;">
+                <i class="fas fa-star me-2" style="color: #fbbf24;"></i>
+                Why Location Matters
+            </h5>
+            
+            <div class="benefit-item">
+                <div class="benefit-icon">
+                    <i class="fas fa-gavel"></i>
+                </div>
+                <div>
+                    <strong>Local Building Codes</strong>
+                    <br><small class="" id="visible-text">Ensure compliance with city-specific regulations</small>
+                </div>
+            </div>
+            
+            <div class="benefit-item">
+                <div class="benefit-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div>
+                    <strong>Safety Standards</strong>
+                    <br><small class="" id="visible-text">Apply appropriate safety requirements for your area</small>
+                </div>
+            </div>
+            
+            <div class="benefit-item">
+                <div class="benefit-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div>
+                    <strong>Accurate Analysis</strong>
+                    <br><small class="" id="visible-text"> Get precise results based on local conditions</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('cityForm');
+        const updateBtn = document.getElementById('updateBtn');
+        const citySelect = document.getElementById('city');
+        
+        // Enhanced form submission with loading state
+        form.addEventListener('submit', function(e) {
+            updateBtn.classList.add('loading');
+            updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Updating...';
+            updateBtn.disabled = true;
+        });
+        
+        // City selection animation
+        citySelect.addEventListener('change', function() {
+            if (this.value) {
+                this.style.background = 'rgba(16, 185, 129, 0.1)';
+                this.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                
+                // Add success icon temporarily
+                setTimeout(() => {
+                    this.style.background = 'rgba(255, 255, 255, 0.1)';
+                    this.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                }, 1000);
+            }
+        });
+        
+        // Add hover effects to benefit items
+        document.querySelectorAll('.benefit-item').forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                const icon = this.querySelector('.benefit-icon');
+                icon.style.transform = 'scale(1.1) rotate(5deg)';
+            });
+            
+            item.addEventListener('mouseleave', function() {
+                const icon = this.querySelector('.benefit-icon');
+                icon.style.transform = 'scale(1) rotate(0deg)';
+            });
+        });
+        
+        // Subtle parallax effect for city illustration
+        if (window.innerWidth > 768) {
+            window.addEventListener('scroll', function() {
+                const illustration = document.querySelector('.city-illustration');
+                if (illustration) {
+                    const scrolled = window.pageYOffset;
+                    illustration.style.transform = `translateY(${scrolled * 0.1}px)`;
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

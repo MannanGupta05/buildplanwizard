@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Payment - Map Analysis System{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="fas fa-credit-card"></i> Payment Required</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Payment Details</h5>
+                        <table class="table">
+                            <tr>
+                                <td>Map Analysis Fee:</td>
+                                <td><strong>₹{{ amount }}</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Processing Fee:</td>
+                                <td><strong>₹0</strong></td>
+                            </tr>
+                            <tr class="table-primary">
+                                <td><strong>Total Amount:</strong></td>
+                                <td><strong>₹{{ amount }}</strong></td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="col-md-6 text-center">
+                        <h5>Scan QR Code to Pay</h5>
+                        <div class="qr-code mb-3">
+                            <!-- QR Code placeholder - replace with actual QR code generator -->
+                            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" 
+                                 alt="QR Code" class="img-fluid border" 
+                                 style="width: 200px; height: 200px; background: #f8f9fa;">
+                            <div class="overlay" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                                <i class="fas fa-qrcode fa-5x text-muted"></i>
+                                <p class="mt-2">QR Code for ₹{{ amount }}</p>
+                            </div>
+                        </div>
+                        <p class="text-muted">Use any UPI app to scan and pay</p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-exclamation-triangle"></i> Payment Instructions:</h6>
+                    <ol class="mb-0">
+                        <li>Scan the QR code using any UPI app (GPay, PhonePe, Paytm, etc.)</li>
+                        <li>Pay the exact amount: ₹{{ amount }}</li>
+                        <li>Note down the transaction ID from your payment app</li>
+                        <li>Enter the transaction ID below to confirm payment</li>
+                    </ol>
+                </div>
+                
+                <form method="POST" action="{{ url_for('confirm_payment', map_id=map_id) }}">
+                    <div class="mb-3">
+                        <label for="transaction_id" class="form-label">Transaction ID</label>
+                        <input type="text" class="form-control" id="transaction_id" name="transaction_id" 
+                               placeholder="Enter the transaction ID from your UPI app" required>
+                        <small class="form-text text-muted">
+                            You can find this in your payment app after successful payment
+                        </small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success btn-lg w-100">
+                        Confirm Payment & Start Analysis
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.qr-code {
+    position: relative;
+    display: inline-block;
+}
+</style>
+{% endblock %}

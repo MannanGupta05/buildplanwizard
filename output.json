@@ -1,0 +1,283 @@
+{
+  "map1": [
+    {
+      "bedroom": [
+        [
+          [
+            "11'-0\"x13'-0\"",
+            "10'-7\u00bd\"x13'-0\""
+          ],
+          "GROUND"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "TERRACE"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "FIRST"
+        ]
+      ],
+      "drawingroom": [
+        [
+          [
+            "10'-4\u00bd\"x10'-0\""
+          ],
+          "GROUND"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "TERRACE"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "FIRST"
+        ]
+      ],
+      "studyroom": [
+        [
+          [
+            "absent"
+          ],
+          "GROUND"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "TERRACE"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "FIRST"
+        ]
+      ],
+      "bathroom": [
+        [
+          [
+            "absent"
+          ],
+          "GROUND"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "TERRACE"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "FIRST"
+        ]
+      ],
+      "water_closet": [
+        [
+          [
+            "absent"
+          ],
+          "GROUND"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "TERRACE"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "FIRST"
+        ]
+      ],
+      "combined_bath_wc": [
+        [
+          [
+            "5'-9\"x6'-9\"",
+            "6'-9\"x5'-0\""
+          ],
+          "GROUND"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "TERRACE"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "FIRST"
+        ]
+      ],
+      "store": [
+        [
+          [
+            "absent"
+          ],
+          "GROUND"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "TERRACE"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "FIRST"
+        ]
+      ],
+      "kitchen": [
+        [
+          [
+            "11'-10.5\"x8'-4.5\""
+          ],
+          "GROUND"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "TERRACE"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "FIRST"
+        ]
+      ],
+      "plot_area_far": [
+        {
+          "total_plot_area": [
+            167.22
+          ],
+          "total_covered_area": [
+            131.5
+          ],
+          "far": [
+            "1:0.78"
+          ]
+        }
+      ],
+      "lobby": [
+        [
+          [
+            "absent"
+          ],
+          "GROUND"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "TERRACE"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "FIRST"
+        ]
+      ],
+      "dining": [
+        [
+          [
+            "absent"
+          ],
+          "GROUND"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "TERRACE"
+        ],
+        [
+          [
+            "absent"
+          ],
+          "FIRST"
+        ]
+      ],
+      "riser_treader_width": [
+        {
+          "staircase_width": [
+            0.99
+          ],
+          "staircase_tread": [
+            0.25
+          ],
+          "staircase_riser": [
+            0.19
+          ],
+          "floor": [
+            "GROUND"
+          ]
+        },
+        {
+          "staircase_width": [
+            "absent"
+          ],
+          "staircase_tread": [
+            "absent"
+          ],
+          "staircase_riser": [
+            "absent"
+          ],
+          "floor": [
+            "TERRACE"
+          ]
+        },
+        {
+          "staircase_width": [
+            "absent"
+          ],
+          "staircase_tread": [
+            "absent"
+          ],
+          "staircase_riser": [
+            "absent"
+          ],
+          "floor": [
+            "FIRST"
+          ]
+        }
+      ],
+      "height_plinth": [
+        {
+          "height": [
+            "7.92"
+          ],
+          "plinth level": [
+            "0.46"
+          ]
+        },
+        {
+          "height": [
+            "7.92"
+          ],
+          "plinth level": [
+            "0.46"
+          ]
+        }
+      ]
+    }
+  ]
+}

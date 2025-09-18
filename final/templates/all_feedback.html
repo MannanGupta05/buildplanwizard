@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}All Feedback - Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h3 class="mt-4 mb-4"><i class="fas fa-database"></i> All User Feedback</h3>
+
+    {% if feedback_entries %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Map ID</th>
+                        <th>Image</th>
+                        <th>User</th>
+                        <th>Rule</th>
+                        <th>Feedback</th>
+                        <th>Remark</th>
+                        <th>Submitted On</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in feedback_entries %}
+                        <tr>
+                            <td>#{{ f[0] }}</td>
+                            <td>
+                                <img src="{{ url_for('map_image', map_id=f[0]) }}" 
+                                     alt="Map Image" style="height: 100px;" class="img-thumbnail">
+                            </td>
+                            <td>
+                                <strong>{{ f[5] }}</strong><br>
+                                <small>{{ f[6] }}</small>
+                            </td>
+                            <td>{{ f[1] }}</td>
+                            <td>
+                                {% if f[2] %}
+                                    <span class="badge bg-success">Correct</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Incorrect</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ f[3] if f[3] else '—' }}</td>
+                            <td><small>{{ f[4] }}</small></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>No feedback submitted yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

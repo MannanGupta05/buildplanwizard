@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis History - Map Analysis System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="fas fa-history"></i> Analysis History</h4>
+            </div>
+            <div class="card-body">
+                {% if history %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Map ID</th>
+                                    <th>Upload Date</th>
+                                    <th>Payment Status</th>
+                                    <th>Analysis Status</th>
+                                    <th>Result</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in history %}
+                                <tr>
+                                    <td>#{{ item.id }}</td>
+                                    <td>{{ item.created_at }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if item.payment_status == 'completed' %}success{% else %}warning{% endif %}">
+                                            {{ item.payment_status.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if item.analysis_status == 'completed' %}success{% elif item.analysis_status == 'pending' %}warning{% else %}secondary{% endif %}">
+                                            {{ item.analysis_status.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if item.status == 'approved' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check"></i> Approved
+                                            </span>
+                                        {% elif item.status == 'rejected' %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-times"></i> Rejected
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.analysis_status == 'completed' %}
+                                            <a href="{{ url_for('view_report', map_id=item.id) }}" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i> View Report
+                                            </a>
+                                        {% elif item.payment_status == 'completed' %}
+                                            <a href="{{ url_for('check_map') }}" 
+                                               class="btn btn-sm btn-outline-success">
+                                                <i class="fas fa-play"></i> Continue
+                                            </a>
+                                        {% else %}
+                                            <a href="{{ url_for('payment', map_id=item.id) }}" 
+                                               class="btn btn-sm btn-outline-warning">
+                                                <i class="fas fa-credit-card"></i> Pay Now
+                                            </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h5>No Analysis History</h5>
+                        <p class="text-muted">You haven't uploaded any maps yet.</p>
+                        <a href="{{ url_for('upload_map') }}" class="btn btn-primary">
+                            <i class="fas fa-upload"></i> Upload Your First Map
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

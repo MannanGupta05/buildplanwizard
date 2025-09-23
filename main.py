@@ -5,37 +5,37 @@ import json
 from PIL import Image
 from io import BytesIO
 
-import config_map as config
-from remove_zeros import SeamCarver
-from yolo_inference import YoloInference
+from src.core import config_map as config
+from src.core.remove_zeros import SeamCarver
+from src.core.yolo_inference import YoloInference
 import google.generativeai as genai
 
-import bedroom_drawingroom_examples
-import studyroom_examples         # ✅ NEW
-import store_examples
-import bathroom_examples
-import kitchen_examples
-import plot_cov_area_far_examples  # ✅ NEW
-import lobby_dining_examples       # ✅ NEW
-import riser_treader_width_examples
-import riser_treader_width_examples_class4
-import riser_treader_width_examples_class5
-import height_plinth_examples     # ✅ NEW
+from src.examples import bedroom_drawingroom_examples
+from src.examples import studyroom_examples         # ✅ NEW
+from src.examples import store_examples
+from src.examples import bathroom_examples
+from src.examples import kitchen_examples
+from src.examples import plot_cov_area_far_examples  # ✅ NEW
+from src.examples import lobby_dining_examples       # ✅ NEW
+from src.examples import riser_treader_width_examples
+from src.examples import riser_treader_width_examples_class4
+from src.examples import riser_treader_width_examples_class5
+from src.examples import height_plinth_examples     # ✅ NEW
 
 
-from bedroom_drawingroom_extraction import BDE
-from store_extraction import StoreExtractor
-from bathroom_extraction import BathroomExtractor
-from kitchen_extraction import KitchenExtractor
-from plot_cov_area_far_extraction import PlotAreaExtractor  # ✅ NEW
-from lobby_dining_extraction import LobbyDiningExtractor     # ✅ NEW
-from riser_treader_width_extraction import RiserTreaderWidthExtractor
-from height_plinth_extraction import HeightPlinthExtractor   # ✅ NEW
-from studyroom_extraction import StudyRoomExtractor  # ✅ NEW
+from src.extractors.bedroom_drawingroom_extraction import BDE
+from src.extractors.store_extraction import StoreExtractor
+from src.extractors.bathroom_extraction import BathroomExtractor
+from src.extractors.kitchen_extraction import KitchenExtractor
+from src.extractors.plot_cov_area_far_extraction import PlotAreaExtractor  # ✅ NEW
+from src.extractors.lobby_dining_extraction import LobbyDiningExtractor     # ✅ NEW
+from src.extractors.riser_treader_width_extraction import RiserTreaderWidthExtractor
+from src.extractors.height_plinth_extraction import HeightPlinthExtractor   # ✅ NEW
+from src.extractors.studyroom_extraction import StudyRoomExtractor  # ✅ NEW
 
 
-import utils
-import check_rules
+from src.core import utils
+from src.core import check_rules
 
 warnings.filterwarnings("ignore")
 

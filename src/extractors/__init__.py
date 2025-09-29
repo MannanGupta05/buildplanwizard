@@ -8,6 +8,7 @@ and are used to extract specific features from building plan images.
 from .base_extractor import BaseExtractor
 from .bathroom_extraction import BathroomExtractor
 from .bedroom_drawingroom_extraction import BDE
+from .floor_count_extraction import FloorCountExtractor
 from .height_plinth_extraction import HeightPlinthExtractor
 from .kitchen_extraction import KitchenExtractor
 from .lobby_dining_extraction import LobbyDiningExtractor
@@ -20,6 +21,7 @@ __all__ = [
     'BaseExtractor',
     'BathroomExtractor',
     'BDE',
+    'FloorCountExtractor',
     'HeightPlinthExtractor',
     'KitchenExtractor',
     'LobbyDiningExtractor',

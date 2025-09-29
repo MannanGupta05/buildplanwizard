@@ -18,6 +18,9 @@ ROOM_RULES = {
     }
 }
 
+# Floor count validation threshold
+MAX_PERMITTED_FLOORS = 3
+
 # ---------- Utility ----------
 def feet_inch_to_meter(value):
     match = re.match(r"(\d+)'(?:-?(\d+(?:\.\d+)?|\d+/\d+)?)?\"?", value.strip())
@@ -259,6 +262,43 @@ def check_building_height(data):
             })
     return passed, logs, structured
 
+# ---------- Rule: Floor Count ----------
+def check_floor_count(floor_data):
+    """Validate that the number of floors does not exceed the maximum permitted."""
+    logs, structured, passed = [], [], True
+    
+    for entry in floor_data:
+        floor_count = entry.get("floor_count", [0])[0]
+        
+        try:
+            count_val = int(floor_count)
+            rule_status = "Pass" if count_val <= MAX_PERMITTED_FLOORS else "Fail"
+            
+            if rule_status == "Fail":
+                passed = False
+                logs.append(f"Building has {count_val} floors, exceeding maximum permitted {MAX_PERMITTED_FLOORS} floors.")
+            
+            structured.append({
+                "rule": "Floor Count Limit",
+                "recorded_value": count_val,
+                "expected_value": f"≤ {MAX_PERMITTED_FLOORS} floors",
+                "status": rule_status,
+                "reason": "OK" if rule_status == "Pass" else f"Exceeds maximum permitted floors ({MAX_PERMITTED_FLOORS})"
+            })
+            
+        except (ValueError, TypeError):
+            passed = False
+            logs.append(f"Invalid floor count value: {floor_count}")
+            structured.append({
+                "rule": "Floor Count Limit",
+                "recorded_value": f"Invalid: {floor_count}",
+                "expected_value": f"Valid integer ≤ {MAX_PERMITTED_FLOORS}",
+                "status": "Fail",
+                "reason": "Invalid or non-numeric floor count value"
+            })
+    
+    return passed, logs, structured
+
 # ---------- MAIN PROCESSING ----------
 def process_rooms(data):
     human_logs = []
@@ -291,6 +331,7 @@ def process_rooms(data):
         log("Rule 7: Staircase", *check_staircase(building.get("riser_treader_width", [])))
         log("Rule 8: Plinth Level", *check_plinth_level(building.get("height_plinth", [])))
         log("Rule 9: Building Height", *check_building_height(building.get("height_plinth", [])))
+        log("Rule 10: Floor Count", *check_floor_count(building.get("floor_count", [])))
 
         human_log.append(
             "Final Verdict: ✅ Passed All Rules"

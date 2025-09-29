@@ -23,6 +23,7 @@ plot_cov_area_far_promptfile= "src/prompts/plot_cov_area_far.prompt"
 riser_treader_width_promptfile = "src/prompts/riser_treader_width.prompt"
 height_plinth_promptfile = "src/prompts/height_plinth.prompt"
 studyroom_promptfile = "src/prompts/studyroom.prompt"
+floor_count_promptfile = "src/prompts/floor_count.prompt"
 
 gemini_api_keys = [
     "AIzaSyDYmyJyb62Wztf9SrcpiHmJnQ0VqWoU5_w"    # Add more API keys here as needed

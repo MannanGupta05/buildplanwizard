@@ -24,6 +24,7 @@ from src.examples import lobby_dining_examples
 from src.examples import riser_treader_width_examples_class4
 from src.examples import riser_treader_width_examples_class5
 from src.examples import height_plinth_examples
+from src.examples import floor_count_examples
 
 # Import all extraction modules
 from src.extractors.bedroom_drawingroom_extraction import BDE
@@ -35,6 +36,7 @@ from src.extractors.lobby_dining_extraction import LobbyDiningExtractor
 from src.extractors.riser_treader_width_extraction import RiserTreaderWidthExtractor
 from src.extractors.height_plinth_extraction import HeightPlinthExtractor
 from src.extractors.studyroom_extraction import StudyRoomExtractor
+from src.extractors.floor_count_extraction import FloorCountExtractor
 
 from src.core import utils
 
@@ -115,7 +117,8 @@ def get_extractor_func(variable):
         "lobby": LobbyDiningExtractor,
         "dining": LobbyDiningExtractor,
         "riser_treader_width": RiserTreaderWidthExtractor,
-        "height_plinth": HeightPlinthExtractor
+        "height_plinth": HeightPlinthExtractor,
+        "floor_count": FloorCountExtractor
     }
     return extractor_dict.get(variable)
 
@@ -168,7 +171,8 @@ class Examples:
             "lobby": lobby_dining_examples.examples,
             "dining": lobby_dining_examples.examples,
             "riser_treader_width": riser_treader_width_examples_class4.examples,
-            "height_plinth": height_plinth_examples.examples
+            "height_plinth": height_plinth_examples.examples,
+            "floor_count": floor_count_examples.examples
         }
     
     @property
@@ -223,6 +227,10 @@ class Examples:
     def height_plinth(self):
         return self._examples_dict["height_plinth"](self.image_path)
     
+    @property
+    def floor_count(self):
+        return self._examples_dict["floor_count"](self.image_path)
+    
     def get_examples(self, variable):
         """Get examples for a specific variable"""
         return getattr(self, variable, [])
@@ -252,7 +260,8 @@ def get_prompt_for_var(variable):
         "lobby": config.lobby_dining_promptfile,
         "dining": config.lobby_dining_promptfile,
         "riser_treader_width": 'src/prompts/riser_treader_width_class4.prompt',
-        "height_plinth": config.height_plinth_promptfile
+        "height_plinth": config.height_plinth_promptfile,
+        "floor_count": config.floor_count_promptfile
     }
     
     prompt_file = var_prompt_dict.get(variable)

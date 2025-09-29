@@ -74,7 +74,7 @@ def analyze_map_with_ai(file_data, filename, file_type):
             variables_to_extract = [
                 "bedroom", "drawingroom", "studyroom", "store", "bathroom", 
                 "water_closet", "combined_bath_wc", "kitchen", "plot_area_far", 
-                "lobby", "dining", "riser_treader_width", "height_plinth"
+                "lobby", "dining", "riser_treader_width", "height_plinth", "floor_count"
             ]
             
             # Initialize results dictionary

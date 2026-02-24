@@ -13,11 +13,14 @@
             </div>
             <div class="card-body">
                 {% if analysis_completed %}
-                    <div class="alert alert-{% if status == 'approved' %}success{% else %}danger{% endif %}">
+                    <div class="alert alert-{% if status == 'approved' %}success{% elif status == 'error' %}danger{% else %}warning{% endif %}">
                         <h5 class="mb-0">
-                            <i class="fas fa-{% if status == 'approved' %}check-circle{% else %}times-circle{% endif %}"></i>
+                            <i class="fas fa-{% if status == 'approved' %}check-circle{% elif status == 'error' %}exclamation-triangle{% else %}times-circle{% endif %}"></i>
                             Analysis Status: {{ status.upper() }}
                         </h5>
+                        {% if status == 'error' %}
+                            <p class="mt-2 mb-0"><small>There was an error during analysis. Please try uploading again or contact support if the problem persists.</small></p>
+                        {% endif %}
                     </div>
                     
                     <div class="row">

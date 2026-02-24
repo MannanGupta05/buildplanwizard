@@ -1,35 +1,29 @@
-# main path 
-MAIN_PATH = r"C:\Users\Mannan Gupta\Desktop\llm-map-approval-website_integration_new_rules\map_approval_codebase1"
+import os
 
-# Paths
-TEST_PDF_PATH = "data\\map_pdfs"
-CONVERTED_IMAGE_PATH = "data\\map_images"
-YOLO_MODEL_PATH = "data\\object_detection_v3.pt"
+# main path - get from environment or use current directory
+MAIN_PATH = os.environ.get("PROJECT_ROOT", os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-# Others
+# Configuration for image processing
 SAVE_IMAGES = False
 ksize = 3
 num_of_zeros = 5
 BOX_CONF = 0.45
 SAVE_CROPS = False
 
-image_path = r"C:\Users\Mannan Gupta\Desktop\llm-map-approval-website_integration_new_rules\map_approval_codebase1\yolov8_segments\\"
-bedroom_drawingroom_promptfile = "src/prompts/bedroom_drawingroom.prompt"
-store_promptfile = "src/prompts/store.prompt"
-bathroom_promptfile = "src/prompts/bathroom.prompt"
-kitchen_promptfile = "src/prompts/kitchen.prompt"
-lobby_dining_promptfile = "src/prompts/lobby_dining.prompt"
-plot_cov_area_far_promptfile= "src/prompts/plot_cov_area_far.prompt"
-riser_treader_width_promptfile = "src/prompts/riser_treader_width.prompt"
-height_plinth_promptfile = "src/prompts/height_plinth.prompt"
-studyroom_promptfile = "src/prompts/studyroom.prompt"
-floor_count_promptfile = "src/prompts/floor_count.prompt"
-
+# Get Gemini API keys from environment variables
 gemini_api_keys = [
-    "AIzaSyDYmyJyb62Wztf9SrcpiHmJnQ0VqWoU5_w"    # Add more API keys here as needed
+    key for key in [
+        os.environ.get("GEMINI_API_KEY"),
+        os.environ.get("GEMINI_API_KEY_2"),  # Optional backup key
+        os.environ.get("GEMINI_API_KEY_3"),  # Optional backup key
+    ] if key  # Only include non-empty keys
 ]
 
-gemini_model = "gemini-2.0-flash"
+# Ensure we have at least one API key
+if not gemini_api_keys:
+    raise ValueError("No Gemini API keys found! Set GEMINI_API_KEY environment variable.")
+
+gemini_model = "gemini-2.5-flash"
 
 def get_gemini_model():
     """Get the configured Gemini model name"""

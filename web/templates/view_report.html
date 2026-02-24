@@ -3,70 +3,90 @@
 {% block title %}Analysis Report - Map Analysis System{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h4 class="mb-0"><i class="fas fa-file-alt"></i> Analysis Report #{{ map_id }}</h4>
-                <span class="badge bg-{% if status == 'approved' %}success{% else %}danger{% endif %} fs-6">
-                    {{ status.upper() }}
-                </span>
+<div class="row g-4">
+    <!-- Left Column: Detailed Report -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header text-white" style="background: var(--primary-gradient); border-radius: 20px 20px 0 0;">
+                <h4 class="mb-0">
+                    <i class="fas fa-file-alt"></i> Analysis Report #{{ map_id }}
+                    <span class="badge float-end bg-{% if status == 'approved' %}success{% else %}danger{% endif %} fs-6">
+                        {{ status.upper() }}
+                    </span>
+                </h4>
             </div>
             <div class="card-body">
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <h6>Map Image:</h6>
-                        <img src="{{ url_for('map_image', map_id=map_id) }}" 
-                             class="img-fluid border rounded" 
-                             alt="Analyzed Map" style="max-height: 300px;">
+                <!-- Map Image -->
+                <div class="mb-4 text-center">
+                    <h6 class="fw-bold">Analyzed Map</h6>
+                    <img src="{{ url_for('map_image', map_id=map_id) }}" 
+                         class="img-fluid border rounded shadow-sm map-hover" 
+                         alt="Analyzed Map" 
+                         style="max-height: 350px; transition: transform 0.3s;">
+                </div>
+
+                <!-- Report Info -->
+                <div class="mb-4">
+                    <div class="card border-0 shadow-sm p-3">
+                        <h6 class="mb-3"><i class="fas fa-info-circle"></i> Report Info</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li><strong>File:</strong> {{ filename if filename else 'Unknown' }}</li>
+                            <li><strong>Analysis Date:</strong> {% if report.split('\n')|length > 1 %}{{ report.split('\n')[1].replace('Analysis Date: ', '') }}{% else %}Unknown{% endif %}</li>
+                            <li>
+                                <strong>Status:</strong>
+                                <span class="badge bg-{% if status == 'approved' %}success{% else %}danger{% endif %}">
+                                    {{ status.upper() }}
+                                </span>
+                            </li>
+                        </ul>
                     </div>
                 </div>
-                
-                <div class="row">
-                    <div class="col-12">
-                        <h6>Detailed Report:</h6>
-                        <div class="bg-light p-3 rounded">
-                            <pre style="white-space: pre-wrap; font-family: inherit;">{{ report }}</pre>
+
+                <!-- Rule-wise Feedback -->
+                <div class="mb-4">
+                    <h6 class="fw-bold">Rule-wise Feedback</h6>
+                    
+                    <!-- Filter Buttons -->
+                    <div class="mb-3">
+                        <button class="btn btn-sm btn-outline-light me-2" onclick="filterRules('all')">All</button>
+                        <button class="btn btn-sm btn-outline-success me-2" onclick="filterRules('Passed')">Passed</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="filterRules('Failed')">Failed</button>
+                    </div>
+
+                    {% for rule in rules %}
+                    <div class="rule-item card p-3 mb-3 shadow-sm" data-status="{{ rule.status }}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong>{{ rule.name }}</strong>
+                            <span class="badge bg-{% if rule.status == 'Passed' %}success{% else %}danger{% endif %}">
+                                {{ rule.status }}
+                            </span>
                         </div>
+                        <div class="mt-2 collapse" id="feedback-{{ loop.index }}">
+                            <form method="POST" action="{{ url_for('submit_feedback') }}">
+                                <input type="hidden" name="map_id" value="{{ map_id }}">
+                                <input type="hidden" name="rule_name" value="{{ rule.name }}">
+                                
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="was_correct" value="1" id="correct-{{ loop.index }}" required>
+                                    <label class="form-check-label" for="correct-{{ loop.index }}">Correct</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="was_correct" value="0" id="incorrect-{{ loop.index }}">
+                                    <label class="form-check-label" for="incorrect-{{ loop.index }}">Incorrect</label>
+                                </div>
+                                <textarea class="form-control mt-2" name="remark" rows="2" placeholder="Optional remarks..."></textarea>
+                                <button type="submit" class="btn btn-sm btn-primary mt-2">Submit Feedback</button>
+                            </form>
+                        </div>
+                        <button class="btn btn-sm btn-link mt-2 p-0 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#feedback-{{ loop.index }}">
+                            <i class="fas fa-comment-dots"></i> Give Feedback
+                        </button>
                     </div>
+                    {% endfor %}
                 </div>
 
-                <div class="mt-4">
-    <h6>Rule-wise Feedback:</h6>
-    {% for rule in rules %}
-        <div class="border rounded p-3 mb-3">
-            <strong>{{ rule.name }}</strong>
-            <span class="badge bg-{% if rule.status == 'Passed' %}success{% else %}danger{% endif %}">
-                {{ rule.status }}
-            </span>
-
-            <form method="POST" action="{{ url_for('submit_feedback') }}" class="mt-2">
-                <input type="hidden" name="map_id" value="{{ map_id }}">
-                <input type="hidden" name="rule_name" value="{{ rule.name }}">
-
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="was_correct" value="1" id="correct-{{ loop.index }}" required>
-                    <label class="form-check-label" for="correct-{{ loop.index }}">Correct</label>
-                </div>
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="was_correct" value="0" id="incorrect-{{ loop.index }}">
-                    <label class="form-check-label" for="incorrect-{{ loop.index }}">Incorrect</label>
-                </div>
-
-                <div class="mt-2">
-                    <textarea class="form-control" name="remark" rows="2" placeholder="Optional remarks..."></textarea>
-                </div>
-
-                <button type="submit" class="btn btn-sm btn-outline-primary mt-2">
-                    Submit Feedback
-                </button>
-            </form>
-        </div>
-    {% endfor %}
-</div>
-
-                
-                <div class="mt-4">
+                <!-- Action Buttons -->
+                <div class="mt-4 d-flex flex-wrap gap-2">
                     <button onclick="window.print()" class="btn btn-primary">
                         <i class="fas fa-print"></i> Print Report
                     </button>
@@ -76,56 +96,79 @@
                     <a href="{{ url_for('upload_map') }}" class="btn btn-success">
                         <i class="fas fa-upload"></i> Analyze Another Map
                     </a>
-
-                    <!-- <a href="{{ url_for('view_feedback', map_id=map_id) }}" class="btn btn-outline-info">
-                        <i class="fas fa-eye"></i> View Submitted Feedback
-                    </a> -->
-
                 </div>
             </div>
         </div>
     </div>
-    
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">Report Summary</h6>
+
+    <!-- Right Column: Summary -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0 p-3">
+            <h6 class="fw-bold">Report Summary</h6>
+            <hr>
+
+            <h6>Analysis Status:</h6>
+            <div class="alert alert-{% if status == 'approved' %}success{% else %}danger{% endif %} text-center fw-bold">
+                {{ status.upper() }}
             </div>
-            <div class="card-body">
-                <h6>Analysis Status:</h6>
-                <div class="alert alert-{% if status == 'approved' %}success{% else %}danger{% endif %}">
-                    <strong>{{ status.upper() }}</strong>
+
+            <!-- Compliance Stats -->
+            {% set passed = rules | selectattr("status", "equalto", "Passed") | list | length %}
+            {% set failed = rules | selectattr("status", "equalto", "Failed") | list | length %}
+            {% set total = rules|length %}
+            {% set percent = (passed / total * 100) if total > 0 else 0 %}
+
+            <h6 class="mt-3">Compliance Overview:</h6>
+            <div class="progress mb-2" style="height: 20px; border-radius: 10px;">
+                <div class="progress-bar {% if percent >= 70 %}bg-success{% elif percent >= 40 %}bg-warning{% else %}bg-danger{% endif %}" 
+                     role="progressbar" style="width: {{ percent|round(0) }}%;" 
+                     aria-valuenow="{{ percent|round(0) }}" aria-valuemin="0" aria-valuemax="100">
+                     {{ percent|round(0) }}%
                 </div>
-                
-                {% if status == 'approved' %}
-                    <div class="alert alert-info">
-                        <h6><i class="fas fa-info-circle"></i> Next Steps:</h6>
-                        <ul class="mb-0">
-                            <li>Submit this report to authorities</li>
-                            <li>Proceed with construction planning</li>
-                            <li>Keep this report for records</li>
-                        </ul>
-                    </div>
-                {% else %}
-                    <div class="alert alert-warning">
-                        <h6><i class="fas fa-exclamation-triangle"></i> Action Required:</h6>
-                        <ul class="mb-0">
-                            <li>Review failed compliance items</li>
-                            <li>Modify your construction plan</li>
-                            <li>Re-submit updated map</li>
-                        </ul>
-                    </div>
-                {% endif %}
             </div>
+            <p class="small text-muted mb-1">Passed: {{ passed }} | Failed: {{ failed }} | Total: {{ total }}</p>
+
+            <!-- Next Steps -->
+            {% if status == 'approved' %}
+                <div class="alert alert-info mt-3">
+                    <h6><i class="fas fa-info-circle"></i> Next Steps:</h6>
+                    <ul class="mb-0">
+                        <li>Submit this report to authorities</li>
+                        <li>Proceed with construction planning</li>
+                        <li>Keep this report for records</li>
+                    </ul>
+                </div>
+            {% else %}
+                <div class="alert alert-warning mt-3">
+                    <h6><i class="fas fa-exclamation-triangle"></i> Action Required:</h6>
+                    <ul class="mb-0">
+                        <li>Review failed compliance items</li>
+                        <li>Modify your construction plan</li>
+                        <li>Re-submit updated map</li>
+                    </ul>
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>
 
 <style>
+.map-hover:hover {
+    transform: scale(1.05);
+}
 @media print {
     .btn, .card-header, nav {
         display: none !important;
     }
 }
 </style>
+
+<script>
+function filterRules(status) {
+    let items = document.querySelectorAll(".rule-item");
+    items.forEach(item => {
+        item.style.display = (status === "all" || item.getAttribute("data-status") === status) ? "block" : "none";
+    });
+}
+</script>
 {% endblock %}

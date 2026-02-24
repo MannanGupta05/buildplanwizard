@@ -1,243 +1,215 @@
 """
-Base extractor class that defines common functionality for all room/feature extractors.
-
-This module provides the BaseExtractor superclass that handles common operations
-like image cropping, message building, JSON parsing, and Gemini model interaction.
-All specific extractors should inherit from this class.
+Base extractor class for architectural plan extraction.
+Provides common functionality for all extractor implementations.
 """
 
 import json
 import re
-from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Tuple, Optional
 from PIL import Image
 from io import BytesIO
-import sys
-import os
-
-# Import utils using relative import
-from ..core import utils
 
 
-class BaseExtractor(ABC):
+class BaseExtractor:
     """
-    Abstract base class for all feature extractors.
-    
-    Provides common functionality for:
-    - Box filtering by class_id
-    - Image cropping from bounding boxes
-    - Building Gemini API messages with examples
-    - JSON parsing and error handling
-    - Standard extraction workflow
+    Base class for all extractors in the architectural plan analysis system.
+    Provides common extraction workflow and methods that can be overridden.
     """
     
-    def __init__(self, boxs: List[Dict[str, Any]]):
+    def __init__(self, boxs):
         """
-        Initialize the extractor with detected bounding boxes.
+        Initialize the base extractor.
         
         Args:
-            boxs: List of bounding box dictionaries with 'bbox' and 'class_id' keys
+            boxs: List of bounding boxes from YOLO detection (empty list for whole-image extractors)
         """
         self.boxs = boxs
     
-    def filter_boxes_by_class(self, class_ids: List[int]) -> List[Dict[str, Any]]:
+    def extraction(self, image, prompt, examples, model):
         """
-        Filter bounding boxes by class ID(s).
+        Main extraction method that orchestrates the extraction process.
         
         Args:
-            class_ids: List of class IDs to filter by
+            image: PIL Image object containing the architectural plan
+            prompt: String prompt for the AI model
+            examples: List of example data (empty for new extractors)
+            model: AI model instance (Gemini)
             
         Returns:
-            List of filtered bounding box dictionaries
+            dict: Extracted data in the format expected by the system
         """
-        return [box for box in self.boxs if box['class_id'] in class_ids]
-    
-    def crop_image_from_box(self, image: Image.Image, box: Dict[str, Any]) -> Image.Image:
-        """
-        Crop image using bounding box coordinates.
-        
-        Args:
-            image: PIL Image to crop
-            box: Bounding box dictionary with 'bbox' key containing [x1, y1, x2, y2]
-            
-        Returns:
-            Cropped PIL Image
-        """
-        x1, y1, x2, y2 = box['bbox']
-        return image.crop((x1, y1, x2, y2))
-    
-    def build_messages(self, system_prompt: str, encoded_examples: List[Dict[str, Any]], 
-                      cropped_img: Image.Image, query_text: str) -> List[Dict[str, Any]]:
-        """
-        Build standardized message structure for Gemini API.
-        
-        Args:
-            system_prompt: System prompt text
-            encoded_examples: List of example dictionaries with base64 images
-            cropped_img: Cropped PIL Image for inference
-            query_text: Text query for the model
-            
-        Returns:
-            List of message dictionaries for Gemini API
-        """
-        messages = [{"role": "user", "parts": [{"text": system_prompt}]}]
-        
-        # Add few-shot examples
-        for ex in encoded_examples:
-            # User message with example image
-            messages.append({
-                "role": "user",
-                "parts": [
-                    {"mime_type": "image/jpeg", "data": ex["base64"]},
-                    {"text": query_text}
-                ]
-            })
-            
-            # Model response with example output
-            example_output = self._format_example_output(ex)
-            messages.append({
-                "role": "model",
-                "parts": [{"text": json.dumps(example_output)}]
-            })
-        
-        # Final user query with actual image
-        messages.append({
-            "role": "user",
-            "parts": [
-                cropped_img,
-                {"text": query_text}
-            ]
-        })
-        
-        return messages
-    
-    def parse_gemini_response(self, response_text: str) -> Dict[str, Any]:
-        """
-        Parse Gemini response text to extract JSON data.
-        
-        Args:
-            response_text: Raw response text from Gemini model
-            
-        Returns:
-            Parsed JSON dictionary
-            
-        Raises:
-            json.JSONDecodeError: If JSON parsing fails
-        """
-        print("Gemini raw output:\n", response_text)
-        
-        # Remove markdown code block markers
-        json_str = re.sub(r"^```json\s*|```$", "", response_text.strip(), flags=re.DOTALL)
-        
         try:
-            return json.loads(json_str)
-        except json.JSONDecodeError:
-            # Fallback: try escaping inches/quotes
-            return json.loads(utils.escape_inches(json_str))
-    
-    def process_floor_value(self, floor_value: Any) -> Any:
-        """
-        Standardize floor value processing.
-        
-        Args:
-            floor_value: Floor value from parsed JSON (could be list or single value)
+            # Get the class IDs that this extractor should process
+            target_class_ids = self._get_target_class_ids()
             
-        Returns:
-            Processed floor value (extracts first element if list)
-        """
-        if isinstance(floor_value, list) and len(floor_value) > 0:
-            return floor_value[0]
-        return floor_value
-    
-    @abstractmethod
-    def _format_example_output(self, example: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Format example dictionary for model training.
-        Each subclass must implement this to define which fields to include.
-        
-        Args:
-            example: Example dictionary with all available fields
+            # For new extractors that process whole images, target_class_ids will be -1
+            if target_class_ids == -1:
+                # Process whole image
+                processed_image = image
+            else:
+                # For legacy extractors that use YOLO crops (not used by new extractors)
+                processed_image = self._get_relevant_image_region(image, target_class_ids)
             
-        Returns:
-            Formatted dictionary for model response
-        """
-        pass
-    
-    @abstractmethod
-    def _get_target_class_ids(self) -> List[int]:
-        """
-        Return the class IDs this extractor should process.
-        
-        Returns:
-            List of class IDs to filter by
-        """
-        pass
-    
-    @abstractmethod
-    def _get_query_text(self) -> str:
-        """
-        Return the query text to use for this extractor.
-        
-        Returns:
-            Query string for Gemini API
-        """
-        pass
-    
-    @abstractmethod
-    def _process_extracted_data(self, data_dict: Dict[str, Any]) -> Any:
-        """
-        Process the extracted data dictionary into the final output format.
-        Each subclass defines its own output structure.
-        
-        Args:
-            data_dict: Parsed JSON dictionary from Gemini response
+            # Generate query text for extraction
+            query_text = self._get_query_text()
             
-        Returns:
-            Processed data in the format expected by this extractor
-        """
-        pass
+            # Call the AI model for extraction
+            response = self._call_ai_model(processed_image, prompt, model)
+            
+            # Process the raw response
+            processed_data = self._process_extracted_data(response)
+            
+            # Format final output
+            final_output = self._format_final_output([processed_data])
+            
+            return final_output
+            
+        except Exception as e:
+            print(f"Extraction error in {self.__class__.__name__}: {str(e)}")
+            # Return default/empty structure on error
+            return self._get_default_output()
     
-    def extraction(self, image: Image.Image, system_prompt: str, 
-                  encoded_examples: List[Dict[str, Any]], model) -> Any:
+    def _call_ai_model(self, image, prompt, model):
         """
-        Standard extraction workflow that can be used by most extractors.
+        Call the AI model with the image and prompt.
         
         Args:
             image: PIL Image to process
-            system_prompt: System prompt for the model
-            encoded_examples: List of example dictionaries
-            model: Gemini model instance
+            prompt: Prompt string for the model
+            model: AI model instance
             
         Returns:
-            Extracted data in format defined by subclass
+            dict: Parsed JSON response from the model
         """
-        target_boxes = self.filter_boxes_by_class(self._get_target_class_ids())
-        results = []
-        
-        for box in target_boxes:
-            cropped_img = self.crop_image_from_box(image, box)
-            messages = self.build_messages(system_prompt, encoded_examples, 
-                                         cropped_img, self._get_query_text())
+        try:
+            # Convert PIL image to bytes for model input
+            image_bytes = BytesIO()
+            image.save(image_bytes, format='PNG')
+            image_bytes.seek(0)
             
-            # Get Gemini response
-            response = model.generate_content(messages)
-            data_dict = self.parse_gemini_response(response.text)
+            # Prepare the content for the model
+            content = [
+                prompt,
+                image  # Pass PIL image directly - Gemini can handle it
+            ]
             
-            # Process data according to subclass implementation
-            processed_data = self._process_extracted_data(data_dict)
-            results.append(processed_data)
-        
-        return self._format_final_output(results)
+            # Generate response using the model
+            response = model.generate_content(content)
+            response_text = response.text
+            
+            # Try to extract JSON from the response
+            json_response = self._extract_json_from_response(response_text)
+            
+            return json_response
+            
+        except Exception as e:
+            print(f"AI model call error: {str(e)}")
+            return {}
     
-    @abstractmethod
-    def _format_final_output(self, results: List[Any]) -> Any:
+    def _extract_json_from_response(self, response_text):
         """
-        Format the list of processed results into final output format.
+        Extract JSON from the AI model response text.
         
         Args:
-            results: List of processed data from each bounding box
+            response_text: Raw text response from AI model
             
         Returns:
-            Final output in the format expected by the caller
+            dict: Parsed JSON data
         """
-        pass
+        try:
+            print(f"Raw AI response: {response_text[:200]}...")
+            
+            # Write AI response to debug file
+            try:
+                with open("debug_prompts.log", "a", encoding="utf-8") as debug_file:
+                    debug_file.write(f"\n=== AI RESPONSE ===\n")
+                    debug_file.write(f"Response: {response_text[:500]}...\n")
+            except:
+                pass
+            
+            # First, try to extract from markdown code blocks
+            if "```json" in response_text:
+                json_start = response_text.find("```json") + 7  # Skip the ```json part
+                json_end = response_text.find("```", json_start)
+                if json_end != -1:
+                    json_str = response_text[json_start:json_end].strip()
+                    print(f"Extracted JSON from markdown: {json_str}")
+                    parsed_json = json.loads(json_str)
+                    return parsed_json
+            
+            # If no markdown blocks, try to find JSON in the response - look for both objects {} and arrays []
+            json_start_obj = response_text.find('{')
+            json_end_obj = response_text.rfind('}') + 1
+            
+            json_start_arr = response_text.find('[')
+            json_end_arr = response_text.rfind(']') + 1
+            
+            # Prefer array format if found, otherwise use object format
+            if json_start_arr != -1 and json_end_arr > json_start_arr:
+                json_str = response_text[json_start_arr:json_end_arr]
+                print(f"Extracted JSON array: {json_str}")
+                return json.loads(json_str)
+            elif json_start_obj != -1 and json_end_obj > json_start_obj:
+                json_str = response_text[json_start_obj:json_end_obj]
+                print(f"Extracted JSON object: {json_str}")
+                return json.loads(json_str)
+            else:
+                # If no JSON brackets found, try to parse the whole response
+                print("No JSON brackets found, trying to parse whole response")
+                return json.loads(response_text)
+                
+        except json.JSONDecodeError as e:
+            print(f"JSON parsing error: {str(e)}")
+            print(f"Raw response: {response_text[:500]}...")
+            return {}
+    
+    def _get_relevant_image_region(self, image, class_ids):
+        """
+        Extract relevant region from image based on class IDs (for legacy extractors).
+        New extractors return the whole image.
+        """
+        # For new extractors, just return the whole image
+        return image
+    
+    def _get_default_output(self):
+        """
+        Return default/empty output structure for error cases.
+        Should be overridden by subclasses.
+        """
+        return {}
+    
+    # Abstract methods that should be implemented by subclasses
+    def _format_example_output(self, example):
+        """
+        Format example output for the extractor.
+        Should be overridden by subclasses.
+        """
+        raise NotImplementedError("Subclasses must implement _format_example_output")
+    
+    def _get_target_class_ids(self):
+        """
+        Return the class IDs that this extractor should process.
+        Return -1 for whole-image extractors.
+        Should be overridden by subclasses.
+        """
+        raise NotImplementedError("Subclasses must implement _get_target_class_ids")
+    
+    def _get_query_text(self):
+        """
+        Return query text for extraction.
+        Should be overridden by subclasses.
+        """
+        raise NotImplementedError("Subclasses must implement _get_query_text")
+    
+    def _process_extracted_data(self, data_dict):
+        """
+        Process extracted data from the AI model response.
+        Should be overridden by subclasses.
+        """
+        raise NotImplementedError("Subclasses must implement _process_extracted_data")
+    
+    def _format_final_output(self, results):
+        """
+        Format final output for the extractor.
+        Should be overridden by subclasses.
+        """
+        raise NotImplementedError("Subclasses must implement _format_final_output")

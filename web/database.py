@@ -1,5 +1,16 @@
 import sqlite3
 
+def safe_print(message):
+    """Print function that handles Unicode characters safely on Windows"""
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        # Replace problematic Unicode characters with ASCII alternatives
+        safe_message = message.encode('ascii', 'replace').decode('ascii')
+        print(safe_message)
+    except Exception as e:
+        print(f"Print error: {str(e)}")
+
 def init_db():
     conn = sqlite3.connect('database.db')
     c = conn.cursor()
@@ -93,12 +104,27 @@ def insert_map(user_id, image_data, filename, file_type):
     return map_id
 
 def update_map_analysis(map_id, report, status):
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    c.execute('''UPDATE maps SET report = ?, status = ?, analysis_status = 'completed' WHERE id = ?''',
-              (report, status, map_id))
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect('database.db')
+        c = conn.cursor()
+        c.execute('''UPDATE maps SET report = ?, status = ?, analysis_status = 'completed' WHERE id = ?''',
+                  (report, status, map_id))
+        conn.commit()
+        rows_affected = c.rowcount
+        conn.close()
+        
+        if rows_affected == 0:
+            safe_print(f"Warning: No rows updated for map_id: {map_id}")
+        else:
+            safe_print(f"Successfully updated map_id: {map_id} with status: {status}")
+            
+    except Exception as e:
+        safe_print(f"Database update error for map_id {map_id}: {str(e)}")
+        try:
+            conn.close()
+        except:
+            pass
+        raise e
 
 def get_user_maps(user_id):
     conn = sqlite3.connect('database.db')

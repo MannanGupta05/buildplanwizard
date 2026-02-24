@@ -11,19 +11,47 @@
     <p class="lead">Please wait while we analyze your map for compliance. This may take a few minutes.</p>
 </div>
 <script>
+    let pollCount = 0;
+    const maxPolls = 100; // Maximum 5 minutes of polling (100 * 3 seconds)
+    
     // Poll the server every 3 seconds to check analysis status
     function checkStatus() {
+        pollCount++;
+        
+        if (pollCount > maxPolls) {
+            alert('Analysis is taking longer than expected. Please refresh the page or contact support.');
+            return;
+        }
+        
         fetch("{{ url_for('check_analysis_status', map_id=map_id) }}")
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                if (data.error) {
+                    console.error('Analysis status error:', data.error);
+                    alert('Error checking analysis status: ' + data.error);
+                    return;
+                }
+                
                 if (data.analysis_completed) {
+                    console.log('Analysis completed, redirecting...');
                     window.location.href = "{{ url_for('check_map') }}";
                 } else {
                     setTimeout(checkStatus, 3000);
                 }
             })
-            .catch(() => setTimeout(checkStatus, 3000));
+            .catch(error => {
+                console.error('Fetch error:', error);
+                // Continue polling even on error, but with a longer delay
+                setTimeout(checkStatus, 5000);
+            });
     }
+    
+    // Start polling
     checkStatus();
 </script>
 {% endblock %}

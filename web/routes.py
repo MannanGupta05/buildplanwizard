@@ -17,6 +17,17 @@ except ImportError:
 import threading
 from datetime import datetime
 
+def safe_print(message):
+    """Print function that handles Unicode characters safely on Windows"""
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        # Replace problematic Unicode characters with ASCII alternatives
+        safe_message = message.encode('ascii', 'replace').decode('ascii')
+        print(safe_message)
+    except Exception as e:
+        print(f"Print error: {str(e)}")
+
 def login_required(f):
     @wraps(f)
     def check_login(*args, **kwargs):
@@ -256,20 +267,28 @@ def register_routes(app):
 
         # Start analysis in background thread
         def run_analysis_async(user_id, map_id):
-            # Get map data
-            conn = sqlite3.connect('database.db')
-            c = conn.cursor()
-            c.execute('SELECT image, filename, file_type FROM maps WHERE id = ? AND user_id = ?', (map_id, user_id))
-            map_data = c.fetchone()
-            conn.close()
-            if not map_data:
-                return
-            file_data, filename, file_type = map_data
+            import traceback
             try:
+                # Get map data
+                conn = sqlite3.connect('database.db')
+                c = conn.cursor()
+                c.execute('SELECT image, filename, file_type FROM maps WHERE id = ? AND user_id = ?', (map_id, user_id))
+                map_data = c.fetchone()
+                conn.close()
+                if not map_data:
+                    print(f"No map data found for map_id: {map_id}, user_id: {user_id}")
+                    update_map_analysis(map_id, "Analysis Error: Map data not found\nPlease try uploading again or contact support.", 'error')
+                    return
+                
+                file_data, filename, file_type = map_data
+                safe_print(f"Starting background analysis for {filename}")
+                
                 results, overall_status, raw_validation, validation_text = analyze_map_with_ai(file_data, filename, file_type)
+                
                 if overall_status == "error" or "error" in results:
                     error_message = results.get("error", {}).get("message", "Unknown error occurred")
                     error_report = f"Analysis Error: {error_message}\nPlease try uploading again or contact support."
+                    safe_print(f"Analysis failed with error: {error_message}")
                     update_map_analysis(map_id, error_report, 'error')
                 else:
                     report = f"Map Analysis Report for {filename}\n"
@@ -279,7 +298,7 @@ def register_routes(app):
                     
                     if results and any(k != "error" for k in results.keys()):
                         report += "RULE COMPLIANCE SUMMARY:\n"
-                        report += "━" * 55 + "\n"
+                        report += "=" * 55 + "\n"
                         
                         # Define rule mapping for clean display
                         rule_mapping = {
@@ -294,7 +313,13 @@ def register_routes(app):
                         
                         for rule, result in results.items():
                             if rule != "error":
-                                print(f"DEBUG - Rule: {rule}, Backend Result: {result['passed']}, Message: {result['message']}")
+                                try:
+                                    # Safely print debug info with Unicode handling
+                                    debug_message = str(result['message']).encode('ascii', 'replace').decode('ascii')
+                                    safe_print(f"DEBUG - Rule: {rule}, Backend Result: {result['passed']}, Message: {debug_message}")
+                                except Exception as print_error:
+                                    safe_print(f"DEBUG - Rule: {rule}, Backend Result: {result['passed']}, Message: [Unicode encoding error]")
+                                
                                 # Get clean rule name from mapping or use original
                                 clean_rule_name = rule_mapping.get(rule, rule)
                                 
@@ -311,12 +336,21 @@ def register_routes(app):
                                 # Format the line cleanly
                                 report += f"{rule_counter:2d}. {clean_rule_name:<40} {status_display}\n"
                                 rule_counter += 1
-                        report += "━" * 55 + "\n"
+                        report += "=" * 55 + "\n"
 
+                    safe_print(f"Analysis completed successfully. Updating database with status: {overall_status}")
                     update_map_analysis(map_id, report, overall_status)
+                    safe_print(f"Database updated successfully for map_id: {map_id}")
+                    
             except Exception as e:
+                safe_print(f"Exception in background analysis thread: {str(e)}")
+                traceback.print_exc()
                 error_report = f"Analysis Error: {str(e)}\nPlease try uploading again or contact support."
-                update_map_analysis(map_id, error_report, 'error')
+                try:
+                    update_map_analysis(map_id, error_report, 'error')
+                    safe_print(f"Error status updated in database for map_id: {map_id}")
+                except Exception as db_error:
+                    safe_print(f"Failed to update database with error status: {str(db_error)}")
 
         # Start thread
         thread = threading.Thread(target=run_analysis_async, args=(session['user_id'], map_id))
@@ -331,19 +365,40 @@ def register_routes(app):
     def check_map():
         map_id = session['current_map_id']
     
-        # Get map data
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
-        c.execute('SELECT image, filename, file_type, status, analysis_status FROM maps WHERE id = ? AND user_id = ?', 
-                (map_id, session['user_id']))
-        map_data = c.fetchone()
-        conn.close()
+        try:
+            # Get map data
+            conn = sqlite3.connect('database.db')
+            c = conn.cursor()
+            c.execute('SELECT image, filename, file_type, status, analysis_status FROM maps WHERE id = ? AND user_id = ?', 
+                    (map_id, session['user_id']))
+            map_data = c.fetchone()
+            conn.close()
+            
+            if not map_data:
+                flash('Map not found.', 'error')
+                return redirect(url_for('upload_map'))
+            
+            file_data, filename, file_type, status, analysis_status = map_data
+            
+            # Check if analysis completed
+            if analysis_status == 'completed':
+                # Analysis is complete, show results
+                if status == 'error':
+                    flash('Analysis encountered an error. Please try uploading again or contact support.', 'error')
+                else:
+                    flash(f'Analysis completed! Status: {status.upper()}', 'success' if status == 'approved' else 'warning')
+                
+                return render_template('check_map.html', 
+                                    map_id=map_id, 
+                                    status=status,
+                                    analysis_completed=True)
         
-        if not map_data:
-            flash('Map not found.', 'error')
+        except Exception as e:
+            safe_print(f"Error in check_map route: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            flash('An error occurred while checking the map. Please try again.', 'error')
             return redirect(url_for('upload_map'))
-        
-        file_data, filename, file_type, status, analysis_status = map_data
         
         # If analysis not done, perform it
         if analysis_status == 'pending':
@@ -400,7 +455,7 @@ def register_routes(app):
                                 # Format the line cleanly
                                 report += f"{rule_counter:2d}. {clean_rule_name:<40} {status_display}\n"
                                 rule_counter += 1
-                        report += "━" * 55 + "\n"
+                        report += "=" * 55 + "\n"
                     # Update database with successful analysis
                     update_map_analysis(map_id, report, overall_status)
                     status = overall_status
@@ -632,15 +687,60 @@ def register_routes(app):
     @app.route('/check_analysis_status/<int:map_id>')
     @login_required
     def check_analysis_status(map_id):
-        import sqlite3
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
-        c.execute('SELECT analysis_status FROM maps WHERE id = ? AND user_id = ?', (map_id, session['user_id']))
-        result = c.fetchone()
-        conn.close()
+        try:
+            import sqlite3
+            conn = sqlite3.connect('database.db')
+            c = conn.cursor()
+            c.execute('SELECT analysis_status, status, report FROM maps WHERE id = ? AND user_id = ?', (map_id, session['user_id']))
+            result = c.fetchone()
+            conn.close()
 
-        analysis_completed = result and result[0] == 'completed'
-        return jsonify({'analysis_completed': analysis_completed})
+            if not result:
+                print(f"Map not found for map_id: {map_id}, user_id: {session['user_id']}")
+                return jsonify({'analysis_completed': False, 'error': 'Map not found'})
+                
+            analysis_status, map_status, report = result
+            analysis_completed = analysis_status == 'completed'
+            
+            print(f"Analysis status check for map_id {map_id}: analysis_status={analysis_status}, map_status={map_status}, completed={analysis_completed}")
+            
+            return jsonify({
+                'analysis_completed': analysis_completed,
+                'status': map_status if analysis_completed else 'pending',
+                'report_length': len(report) if report else 0
+            })
+            
+        except Exception as e:
+            safe_print(f"Error checking analysis status: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'analysis_completed': False, 'error': 'Database error'})
+    
+    # Debug route - remove in production
+    @app.route('/debug_map/<int:map_id>')
+    @login_required
+    def debug_map(map_id):
+        try:
+            import sqlite3
+            conn = sqlite3.connect('database.db')
+            c = conn.cursor()
+            c.execute('SELECT * FROM maps WHERE id = ? AND user_id = ?', (map_id, session['user_id']))
+            result = c.fetchone()
+            conn.close()
+            
+            if not result:
+                return f"Map not found for ID: {map_id}"
+            
+            # Convert to dict for display (excluding binary image data)
+            columns = ['id', 'user_id', 'image', 'filename', 'file_type', 'report', 'status', 'payment_status', 'analysis_status', 'created_at']
+            map_info = dict(zip(columns, result))
+            map_info['image'] = f"<binary data: {len(result[2])} bytes>" if result[2] else "None"
+            map_info['report'] = result[5][:500] + "..." if result[5] and len(result[5]) > 500 else result[5]
+            
+            return f"<pre>{map_info}</pre>"
+            
+        except Exception as e:
+            return f"Debug error: {str(e)}"
 
 
 

@@ -9,6 +9,9 @@ Usage:
 import sys
 import os
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # Add the current directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 

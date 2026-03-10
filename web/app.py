@@ -13,7 +13,7 @@ except ImportError:
     from database import init_db
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "your_secret_key_change_this_in_production")
+app.secret_key = os.getenv("SECRET_KEY", "your_secret_key_change_this_in_production") #change1
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Initialize the database

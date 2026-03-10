@@ -1,21 +1,9 @@
-# Web framework
-Flask==2.3.6
-Flask-Cors==3.0.13
-
-# HTTP requests
-requests==2.32.0
-
-# Image processing
+Flask==2.3.3
+Werkzeug==2.3.7
 Pillow==10.0.0
 pdf2image==1.16.3
-opencv-python==4.8.1.78
-
-# Google Gemini API
 google-generativeai==0.3.0
-
-# Numerical / scientific computing
+opencv-python==4.8.1.78
 numpy==1.26.2
-scipy==1.12.2
-
-# Additional dependencies for production deployment
+python-dotenv==1.0.1
 gunicorn==21.2.0

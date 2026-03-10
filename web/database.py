@@ -1,4 +1,7 @@
 import sqlite3
+import os
+
+DB_PATH = os.path.join(os.getcwd(), "database.db")
 
 def safe_print(message):
     """Print function that handles Unicode characters safely on Windows"""
@@ -12,7 +15,7 @@ def safe_print(message):
         print(f"Print error: {str(e)}")
 
 def init_db():
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,7 +68,7 @@ def init_db():
     conn.close()
 
 def create_user(username, email, password_hash, full_name, phone, city):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     try:
         c.execute('''INSERT INTO users (username, email, password_hash, full_name, phone, city)
@@ -81,7 +84,7 @@ def create_user(username, email, password_hash, full_name, phone, city):
 from werkzeug.security import check_password_hash
 
 def verify_user(username_or_email, password):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('SELECT id, password_hash, full_name, city FROM users WHERE username = ? OR email = ?',
               (username_or_email, username_or_email))
@@ -93,7 +96,7 @@ def verify_user(username_or_email, password):
     return None
 
 def insert_map(user_id, image_data, filename, file_type):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''INSERT INTO maps (user_id, image, filename, file_type, report, status, payment_status, analysis_status)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
@@ -105,7 +108,7 @@ def insert_map(user_id, image_data, filename, file_type):
 
 def update_map_analysis(map_id, report, status):
     try:
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('''UPDATE maps SET report = ?, status = ?, analysis_status = 'completed' WHERE id = ?''',
                   (report, status, map_id))
@@ -127,7 +130,7 @@ def update_map_analysis(map_id, report, status):
         raise e
 
 def get_user_maps(user_id):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''SELECT id, status, payment_status, analysis_status, created_at, report, filename
                  FROM maps WHERE user_id = ? ORDER BY created_at DESC''',

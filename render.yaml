@@ -2,8 +2,8 @@ services:
   - type: web
     name: buildplanwizard
     env: python
-    buildCommand: |
-      pip install -r requirements.txt
-      apt-get update
-      apt-get install -y poppler-utils
+    plan: free
+    aptPackages:
+      - poppler-utils
+    buildCommand: pip install -r requirements.txt
     startCommand: gunicorn run_app:app

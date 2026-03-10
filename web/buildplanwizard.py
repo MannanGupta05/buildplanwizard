@@ -26,7 +26,7 @@ try:
 except ImportError:
     from rule_verifier import rule_verifier
 
-def read_pdf(file_path):
+"""def read_pdf(file_path):
     """Convert PDF to image and return the first page"""
     try:
         # Try to find poppler path - check multiple possible locations
@@ -49,6 +49,27 @@ def read_pdf(file_path):
         if not images:
             raise Exception("Failed to convert PDF to image")
         return images[0]
+    except Exception as e:
+        raise Exception(f"PDF conversion failed: {str(e)}")"""""
+
+import platform
+
+def read_pdf(file_path):
+    """Convert PDF to image and return the first page"""
+    try:
+        # On Windows use bundled poppler
+        if platform.system() == "Windows":
+            poppler_path = os.path.join(config.MAIN_PATH, "poppler-24.08.0", "Library", "bin")
+            images = convert_from_path(file_path, dpi=300, poppler_path=poppler_path)
+        else:
+            # On Linux (Render) poppler is installed in system PATH
+            images = convert_from_path(file_path, dpi=300)
+
+        if not images:
+            raise Exception("Failed to convert PDF to image")
+
+        return images[0]
+
     except Exception as e:
         raise Exception(f"PDF conversion failed: {str(e)}")
 

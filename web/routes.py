@@ -5,6 +5,8 @@ import io
 import sys
 import os
 
+DB_PATH = os.path.join(os.getcwd(), "database.db")
+
 # Handle both relative and absolute imports
 try:
     from .database import *
@@ -45,7 +47,7 @@ def payment_required(f):
             return redirect(url_for('upload_map'))
         
         map_id = session['current_map_id']
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('SELECT payment_status FROM maps WHERE id = ? AND user_id = ?', 
                  (map_id, session['user_id']))
@@ -77,7 +79,7 @@ def register_routes(app):
         if request.method == 'POST':
             new_city = request.form['city']
 
-            conn = sqlite3.connect('database.db')
+            conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
             c.execute('UPDATE users SET city = ? WHERE id = ?', (new_city, session['user_id']))
             conn.commit()
@@ -208,7 +210,7 @@ def register_routes(app):
     @login_required
     def payment(map_id):
         # Verify map belongs to user
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('SELECT id, payment_status FROM maps WHERE id = ? AND user_id = ?', 
                 (map_id, session['user_id']))
@@ -224,7 +226,7 @@ def register_routes(app):
             return redirect(url_for('check_map'))
         
         # Create payment record
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('''
             INSERT OR IGNORE INTO payments (user_id, map_id, amount, status)
@@ -245,7 +247,7 @@ def register_routes(app):
             return redirect(url_for('payment', map_id=map_id))
         
         # Update payment status
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         
         # Update payment record
@@ -270,7 +272,7 @@ def register_routes(app):
             import traceback
             try:
                 # Get map data
-                conn = sqlite3.connect('database.db')
+                conn = sqlite3.connect(DB_PATH)
                 c = conn.cursor()
                 c.execute('SELECT image, filename, file_type FROM maps WHERE id = ? AND user_id = ?', (map_id, user_id))
                 map_data = c.fetchone()
@@ -367,7 +369,7 @@ def register_routes(app):
     
         try:
             # Get map data
-            conn = sqlite3.connect('database.db')
+            conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
             c.execute('SELECT image, filename, file_type, status, analysis_status FROM maps WHERE id = ? AND user_id = ?', 
                     (map_id, session['user_id']))
@@ -503,7 +505,7 @@ def register_routes(app):
     @app.route('/view_report/<int:map_id>')
     @login_required
     def view_report(map_id):
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('SELECT report, status, filename FROM maps WHERE id = ? AND user_id = ?', 
                 (map_id, session['user_id']))
@@ -548,7 +550,7 @@ def register_routes(app):
         was_correct = bool(int(request.form['was_correct']))
         remark = request.form.get('remark', '')
 
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('''
             INSERT INTO feedback (user_id, map_id, rule_name, was_correct, remark)
@@ -563,7 +565,7 @@ def register_routes(app):
     @app.route('/view_feedback/<int:map_id>')
     @login_required
     def view_feedback(map_id):
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('''
             SELECT rule_name, was_correct, remark, created_at
@@ -588,7 +590,7 @@ def register_routes(app):
     @app.route('/all_feedback')
     @login_required  # optionally add @admin_required
     def all_feedback():
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('''
             SELECT
@@ -638,7 +640,7 @@ def register_routes(app):
         from flask import send_file
         from pdf2image import convert_from_path
 
-        conn = sqlite3.connect('database.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('SELECT image, file_type FROM maps WHERE id = ? AND user_id = ?', (map_id, session['user_id']))
         result = c.fetchone()
@@ -689,7 +691,7 @@ def register_routes(app):
     def check_analysis_status(map_id):
         try:
             import sqlite3
-            conn = sqlite3.connect('database.db')
+            conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
             c.execute('SELECT analysis_status, status, report FROM maps WHERE id = ? AND user_id = ?', (map_id, session['user_id']))
             result = c.fetchone()
@@ -722,7 +724,7 @@ def register_routes(app):
     def debug_map(map_id):
         try:
             import sqlite3
-            conn = sqlite3.connect('database.db')
+            conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
             c.execute('SELECT * FROM maps WHERE id = ? AND user_id = ?', (map_id, session['user_id']))
             result = c.fetchone()

@@ -6,7 +6,7 @@ import sys
 import os
 import psycopg2
 
-DB_PATH = os.path.join(os.getcwd(), "database.db")
+# DB_PATH = os.path.join(os.getcwd(), "database.db")
 
 # Handle both relative and absolute imports
 try:
@@ -51,7 +51,7 @@ def payment_required(f):
         # conn = sqlite3.connect(DB_PATH)
         conn = get_connection()
         c = conn.cursor()
-        c.execute('SELECT payment_status FROM maps WHERE id = ? AND user_id = ?', 
+        c.execute('SELECT payment_status FROM maps WHERE id = %s AND user_id = %s', 
                  (map_id, session['user_id']))
         result = c.fetchone()
         conn.close()
@@ -84,7 +84,7 @@ def register_routes(app):
             # conn = sqlite3.connect(DB_PATH)
             conn = get_connection()
             c = conn.cursor()
-            c.execute('UPDATE users SET city = ? WHERE id = ?', (new_city, session['user_id']))
+            c.execute('UPDATE users SET city = %s WHERE id = %s', (new_city, session['user_id']))
             conn.commit()
             conn.close()
 
@@ -216,7 +216,7 @@ def register_routes(app):
         # conn = sqlite3.connect(DB_PATH)
         conn = get_connection()
         c = conn.cursor()
-        c.execute('SELECT id, payment_status FROM maps WHERE id = ? AND user_id = ?', 
+        c.execute('SELECT id, payment_status FROM maps WHERE id = %s AND user_id = %s', 
                 (map_id, session['user_id']))
         map_data = c.fetchone()
         conn.close()
@@ -234,8 +234,9 @@ def register_routes(app):
         conn = get_connection()
         c = conn.cursor()
         c.execute('''
-            INSERT OR IGNORE INTO payments (user_id, map_id, amount, status)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO payments (user_id, map_id, amount, status)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT DO NOTHING
         ''', (session['user_id'], map_id, 50.00, 'pending'))
         conn.commit()
         conn.close()
@@ -258,14 +259,14 @@ def register_routes(app):
         
         # Update payment record
         c.execute('''
-            UPDATE payments SET status = 'completed', transaction_id = ?
-            WHERE user_id = ? AND map_id = ? AND status = 'pending'
+            UPDATE payments SET status = 'completed', transaction_id = %s
+            WHERE user_id = %s AND map_id = %s AND status = 'pending'
         ''', (transaction_id, session['user_id'], map_id))
         
         # Update map payment status
         c.execute('''
             UPDATE maps SET payment_status = 'completed'
-            WHERE id = ? AND user_id = ?
+            WHERE id = %s AND user_id = %s
         ''', (map_id, session['user_id']))
         
         conn.commit()
@@ -281,7 +282,7 @@ def register_routes(app):
                 # conn = sqlite3.connect(DB_PATH)
                 conn = get_connection()
                 c = conn.cursor()
-                c.execute('SELECT image, filename, file_type FROM maps WHERE id = ? AND user_id = ?', (map_id, user_id))
+                c.execute('SELECT image, filename, file_type FROM maps WHERE id = %s AND user_id = %s', (map_id, user_id))
                 map_data = c.fetchone()
                 conn.close()
                 if not map_data:
@@ -379,7 +380,7 @@ def register_routes(app):
             # conn = sqlite3.connect(DB_PATH)
             conn = get_connection()
             c = conn.cursor()
-            c.execute('SELECT image, filename, file_type, status, analysis_status FROM maps WHERE id = ? AND user_id = ?', 
+            c.execute('SELECT image, filename, file_type, status, analysis_status FROM maps WHERE id = %s AND user_id = %s', 
                     (map_id, session['user_id']))
             map_data = c.fetchone()
             conn.close()
@@ -516,7 +517,7 @@ def register_routes(app):
         # conn = sqlite3.connect(DB_PATH)
         conn = get_connection()
         c = conn.cursor()
-        c.execute('SELECT report, status, filename FROM maps WHERE id = ? AND user_id = ?', 
+        c.execute('SELECT report, status, filename FROM maps WHERE id = %s AND user_id = %s', 
                 (map_id, session['user_id']))
         result = c.fetchone()
         conn.close()
@@ -564,7 +565,7 @@ def register_routes(app):
         c = conn.cursor()
         c.execute('''
             INSERT INTO feedback (user_id, map_id, rule_name, was_correct, remark)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
         ''', (user_id, map_id, rule_name, was_correct, remark))
         conn.commit()
         conn.close()
@@ -581,11 +582,11 @@ def register_routes(app):
         c.execute('''
             SELECT rule_name, was_correct, remark, created_at
             FROM feedback
-            WHERE user_id = ? AND map_id = ?
+            WHERE user_id = %s AND map_id = %s
             ORDER BY created_at DESC
         ''', (session['user_id'], map_id))
         feedbacks = c.fetchall()
-        c.execute('SELECT file_type FROM maps WHERE id = ?', (map_id,))
+        c.execute('SELECT file_type FROM maps WHERE id = %s', (map_id,))
         map_info = c.fetchone()
         conn.close()
 
@@ -655,7 +656,7 @@ def register_routes(app):
         # conn = sqlite3.connect(DB_PATH)
         conn = get_connection()
         c = conn.cursor()
-        c.execute('SELECT image, file_type FROM maps WHERE id = ? AND user_id = ?', (map_id, session['user_id']))
+        c.execute('SELECT image, file_type FROM maps WHERE id = %s AND user_id = %s', (map_id, session['user_id']))
         result = c.fetchone()
         conn.close()
 
@@ -707,7 +708,7 @@ def register_routes(app):
             # conn = sqlite3.connect(DB_PATH)
             conn = get_connection()
             c = conn.cursor()
-            c.execute('SELECT analysis_status, status, report FROM maps WHERE id = ? AND user_id = ?', (map_id, session['user_id']))
+            c.execute('SELECT analysis_status, status, report FROM maps WHERE id = %s AND user_id = %s', (map_id, session['user_id']))
             result = c.fetchone()
             conn.close()
 
@@ -741,7 +742,7 @@ def register_routes(app):
             # conn = sqlite3.connect(DB_PATH)
             conn = get_connection()
             c = conn.cursor()
-            c.execute('SELECT * FROM maps WHERE id = ? AND user_id = ?', (map_id, session['user_id']))
+            c.execute('SELECT * FROM maps WHERE id = %s AND user_id = %s', (map_id, session['user_id']))
             result = c.fetchone()
             conn.close()
             

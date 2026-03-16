@@ -7,14 +7,8 @@ def get_connection():
     db_url = os.environ.get("DATABASE_URL")
 
     if db_url:
-        url = urlparse(db_url)
-        return psycopg2.connect(
-            host=url.hostname,
-            database=url.path[1:],
-            user=url.username,
-            password=url.password,
-            port=url.port
-        )
+        return psycopg2.connect(db_url, sslmode="require")
+        
     else:
         # fallback for local development
         import sqlite3
@@ -37,7 +31,7 @@ def init_db():
     conn = get_connection()
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY ,
+        id SERIAL PRIMARY KEY ,
         username VARCHAR(50) UNIQUE NOT NULL,
         email VARCHAR(100) UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
@@ -47,7 +41,7 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     c.execute('''CREATE TABLE IF NOT EXISTS maps (
-        id INTEGER PRIMARY KEY ,
+        id SERIAL PRIMARY KEY ,
         user_id INTEGER NOT NULL,
         image BYTEA NULL,
         filename VARCHAR(255),
@@ -60,7 +54,7 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users (id)
     )''')
     c.execute('''CREATE TABLE IF NOT EXISTS payments (
-        id INTEGER PRIMARY KEY ,
+        id SERIAL PRIMARY KEY ,
         user_id INTEGER NOT NULL,
         map_id INTEGER NOT NULL,
         amount DECIMAL(10,2) DEFAULT 50.00,
@@ -73,7 +67,7 @@ def init_db():
     )''')
 
     c.execute('''CREATE TABLE IF NOT EXISTS feedback (
-            id INTEGER PRIMARY KEY ,
+            id SERIAL PRIMARY KEY ,
             user_id INTEGER NOT NULL,
             map_id INTEGER NOT NULL,
             rule_name TEXT NOT NULL,
@@ -92,7 +86,7 @@ def create_user(username, email, password_hash, full_name, phone, city):
     c = conn.cursor()
     try:
         c.execute('''INSERT INTO users (username, email, password_hash, full_name, phone, city)
-                     VALUES (?, ?, ?, ?, ?, ?)''',
+                     VALUES (%s, %s, %s, %s, %s, %s)''',
                   (username, email, password_hash, full_name, phone, city))
         conn.commit()
         return c.lastrowid
@@ -107,7 +101,7 @@ def verify_user(username_or_email, password):
     # conn = sqlite3.connect(DB_PATH)
     conn = get_connection()
     c = conn.cursor()
-    c.execute('SELECT id, password_hash, full_name, city FROM users WHERE username = ? OR email = ?',
+    c.execute('SELECT id, password_hash, full_name, city FROM users WHERE username = %s OR email = %s',
               (username_or_email, username_or_email))
     user = c.fetchone()
     conn.close()
@@ -121,7 +115,7 @@ def insert_map(user_id, image_data, filename, file_type):
     conn = get_connection()
     c = conn.cursor()
     c.execute('''INSERT INTO maps (user_id, image, filename, file_type, report, status, payment_status, analysis_status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
               (user_id, image_data, filename, file_type, 'Analysis pending...', 'pending', 'pending', 'pending'))
     conn.commit()
     map_id = c.lastrowid
@@ -133,7 +127,7 @@ def update_map_analysis(map_id, report, status):
         # conn = sqlite3.connect(DB_PATH)
         conn = get_connection()
         c = conn.cursor()
-        c.execute('''UPDATE maps SET report = ?, status = ?, analysis_status = 'completed' WHERE id = ?''',
+        c.execute('''UPDATE maps SET report = %s, status = %s, analysis_status = 'completed' WHERE id = %s''',
                   (report, status, map_id))
         conn.commit()
         rows_affected = c.rowcount
@@ -157,7 +151,7 @@ def get_user_maps(user_id):
     conn = get_connection()
     c = conn.cursor()
     c.execute('''SELECT id, status, payment_status, analysis_status, created_at, report, filename
-                 FROM maps WHERE user_id = ? ORDER BY created_at DESC''',
+                 FROM maps WHERE user_id = %s ORDER BY created_at DESC''',
               (user_id,))
     maps = c.fetchall()
     conn.close()

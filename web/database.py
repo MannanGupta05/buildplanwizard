@@ -49,7 +49,7 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS maps (
         id INTEGER PRIMARY KEY ,
         user_id INTEGER NOT NULL,
-        image BLOB,
+        image BYTEA NULL,
         filename VARCHAR(255),
         file_type VARCHAR(10),
         report TEXT,

@@ -18,6 +18,8 @@ try:
 except ImportError:
     from buildplanwizard import rule_verifier, Extractor, get_extractor_func, get_image_for_var, get_examples_for_var, get_prompt_for_var, read_pdf, create_segments
 
+import evals
+
 def analyze_map_with_ai(file_data, filename, file_type):
     """
     Enhanced map analysis function with simplified structure using buildplanwizard
@@ -431,6 +433,9 @@ def analyze_map_with_ai(file_data, filename, file_type):
             with open(temp_json_path, "w") as f:
                 json.dump(final_dict, f, indent=2)
             print("Data saved to output.json")
+
+            # Convert extraction results to CSV for local evaluation only
+            evals.json_to_csv(temp_json_path)
             
             # Temporarily change working directory to ensure check_rules can find the output.json
             original_cwd = os.getcwd()

@@ -1,6 +1,5 @@
 # This is the top level file which is going to contain rule_verifier and Extractor functionalities. 
 # It also defines relative paths for example folders, prompts
-# Updated to use ONLY the new extractors_new system
 
 import os
 import sys
@@ -11,12 +10,11 @@ from src.core import config_map as config
 from PIL import Image
 from pdf2image import convert_from_path
 
-# Import ONLY the new extractors (no YOLO needed - whole image mode)
-from src.extractors_new.area_extraction import AreaExtractor
-from src.extractors_new.room_extraction import RoomExtractor
-from src.extractors_new.setback_floors_extraction import SetbackFloorsExtractor
-from src.extractors_new.staircase_extraction import StaircaseExtractor
-from src.extractors_new.height_kitchen_bathroom_extraction import HeightKitchenBathroomExtractor
+from src.extractors.area_extraction import AreaExtractor
+from src.extractors.room_extraction import RoomExtractor
+from src.extractors.setback_floors_extraction import SetbackFloorsExtractor
+from src.extractors.staircase_extraction import StaircaseExtractor
+from src.extractors.height_kitchen_bathroom_extraction import HeightKitchenBathroomExtractor
 
 from src.core import utils
 
@@ -154,45 +152,45 @@ def get_prompt_for_var(variable):
     
     var_prompt_dict = {
         # Area extractions use area.prompt
-        "total_plot_area": "src/prompts_new/area.prompt",
-        "ground_covered_area": "src/prompts_new/area.prompt",
-        "total_covered_area": "src/prompts_new/area.prompt",
-        "far": "src/prompts_new/area.prompt",
-        "plot_area_far": "src/prompts_new/area.prompt",
+        "total_plot_area": "src/prompts/area.prompt",
+        "ground_covered_area": "src/prompts/area.prompt",
+        "total_covered_area": "src/prompts/area.prompt",
+        "far": "src/prompts/area.prompt",
+        "plot_area_far": "src/prompts/area.prompt",
         
         # Room extractions use room.prompt
-        "bedroom": "src/prompts_new/room.prompt",
-        "drawingroom": "src/prompts_new/room.prompt",
-        "studyroom": "src/prompts_new/room.prompt",
-        "store": "src/prompts_new/room.prompt",
+        "bedroom": "src/prompts/room.prompt",
+        "drawingroom": "src/prompts/room.prompt",
+        "studyroom": "src/prompts/room.prompt",
+        "store": "src/prompts/room.prompt",
         
         # Setback and floors use setback_floors.prompt
-        "setback": "src/prompts_new/setback_floors.prompt",
-        "floors": "src/prompts_new/setback_floors.prompt",
-        "no_of_floors": "src/prompts_new/setback_floors.prompt",
-        "front_setback": "src/prompts_new/setback_floors.prompt",
-        "rear_setback": "src/prompts_new/setback_floors.prompt",
-        "left_side_setback": "src/prompts_new/setback_floors.prompt",
-        "right_side_setback": "src/prompts_new/setback_floors.prompt",
+        "setback": "src/prompts/setback_floors.prompt",
+        "floors": "src/prompts/setback_floors.prompt",
+        "no_of_floors": "src/prompts/setback_floors.prompt",
+        "front_setback": "src/prompts/setback_floors.prompt",
+        "rear_setback": "src/prompts/setback_floors.prompt",
+        "left_side_setback": "src/prompts/setback_floors.prompt",
+        "right_side_setback": "src/prompts/setback_floors.prompt",
         
         # Staircase dimensions use staircase.prompt
-        "staircase": "src/prompts_new/staircase.prompt",
-        "staircase_riser": "src/prompts_new/staircase.prompt",
-        "staircase_tread": "src/prompts_new/staircase.prompt",
-        "staircase_width": "src/prompts_new/staircase.prompt",
+        "staircase": "src/prompts/staircase.prompt",
+        "staircase_riser": "src/prompts/staircase.prompt",
+        "staircase_tread": "src/prompts/staircase.prompt",
+        "staircase_width": "src/prompts/staircase.prompt",
         
         # Height, Kitchen, and Bathroom extractions use height_kitchen_bathroom.prompt
-        "bathroom": "src/prompts_new/height_kitchen_bathroom.prompt",
-        "water_closet": "src/prompts_new/height_kitchen_bathroom.prompt",
-        "combined_bath_wc": "src/prompts_new/height_kitchen_bathroom.prompt",
-        "kitchen_only": "src/prompts_new/height_kitchen_bathroom.prompt",
-        "kitchen_with_separate_dining": "src/prompts_new/height_kitchen_bathroom.prompt",
-        "kitchen_with_separate_store": "src/prompts_new/height_kitchen_bathroom.prompt",
-        "kitchen_with_dining": "src/prompts_new/height_kitchen_bathroom.prompt",
-        "plinth_height": "src/prompts_new/height_kitchen_bathroom.prompt",
-        "building_height": "src/prompts_new/height_kitchen_bathroom.prompt",
-        "height_plinth": "src/prompts_new/height_kitchen_bathroom.prompt",
-        "kitchen": "src/prompts_new/height_kitchen_bathroom.prompt"
+        "bathroom": "src/prompts/height_kitchen_bathroom.prompt",
+        "water_closet": "src/prompts/height_kitchen_bathroom.prompt",
+        "combined_bath_wc": "src/prompts/height_kitchen_bathroom.prompt",
+        "kitchen_only": "src/prompts/height_kitchen_bathroom.prompt",
+        "kitchen_with_separate_dining": "src/prompts/height_kitchen_bathroom.prompt",
+        "kitchen_with_separate_store": "src/prompts/height_kitchen_bathroom.prompt",
+        "kitchen_with_dining": "src/prompts/height_kitchen_bathroom.prompt",
+        "plinth_height": "src/prompts/height_kitchen_bathroom.prompt",
+        "building_height": "src/prompts/height_kitchen_bathroom.prompt",
+        "height_plinth": "src/prompts/height_kitchen_bathroom.prompt",
+        "kitchen": "src/prompts/height_kitchen_bathroom.prompt"
     }
     
     prompt_file = var_prompt_dict.get(variable)

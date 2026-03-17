@@ -45,6 +45,15 @@ def parse_dimension(dim_str):
     except:
         return None, None
 
+
+def _flatten_dimension_values(value):
+    """Yield scalar dimension-like values from nested extractor output."""
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _flatten_dimension_values(item)
+    else:
+        yield value
+
 # ---------- Rule 1 ----------
 def calculate_max_coverage(plot_area):
     if 60 <= plot_area <= 100:
@@ -104,11 +113,23 @@ def check_far(area_data):
 def check_room_dimensions(room_type, room_data):
     rule = ROOM_RULES[room_type]
     logs, structured, passed = [], [], True
-    for dims, floor in room_data:
-        for dim in dims:
-            if dim.lower() == "absent":
+    for room_entry in room_data:
+        if not isinstance(room_entry, (list, tuple)) or len(room_entry) < 2:
+            passed = False
+            logs.append(f"{room_type.title()} entry has unexpected format: {room_entry}")
+            continue
+
+        dims, floor = room_entry[0], room_entry[1]
+        floor_label = floor[0] if isinstance(floor, list) and floor else floor
+        for dim in _flatten_dimension_values(dims):
+            if dim is None:
                 continue
-            width, length = parse_dimension(dim)
+            dim_text = str(dim).strip()
+            if not dim_text:
+                continue
+            if dim_text.lower() == "absent":
+                continue
+            width, length = parse_dimension(dim_text)
             if not width or not length:
                 continue
             area = width * length
@@ -117,10 +138,10 @@ def check_room_dimensions(room_type, room_data):
             rule_status = "Pass" if area_ok and width_ok else "Fail"
             if rule_status == "Fail":
                 passed = False
-                logs.append(f"{room_type.title()} on {floor} – {dim}: Area {area:.2f} m², Width {width:.2f} m.")
+                logs.append(f"{room_type.title()} on {floor_label} - {dim_text}: Area {area:.2f} m2, Width {width:.2f} m.")
             structured.append({
                 "rule": f"{room_type.title()} Dimensions",
-                "floor": floor,
+                "floor": floor_label,
                 "recorded_value": f"{area:.2f} m², width {width:.2f} m",
                 "expected_value": f"≥ {rule['expected_area_m2']} m², width ≥ {rule['expected_min_width_m']} m",
                 "status": rule_status,

@@ -17,7 +17,7 @@ A web application for automated building plan approval using AI-powered analysis
 1. Clone the repository:
 ```bash
 git clone <your-repo-url>
-cd map_approval_codebase1
+cd buildplanwizard
 ```
 
 2. Install dependencies:

@@ -5,15 +5,19 @@ from urllib.parse import urlparse
 
 def get_connection():
     db_url = os.environ.get("DATABASE_URL")
-
     if db_url:
         return psycopg2.connect(db_url, sslmode="require")
-        
     else:
-        # fallback for local development
-        import sqlite3
         return sqlite3.connect("database.db")
-#DB_PATH = os.path.join(os.getcwd(), "database.db")
+
+def is_postgres():
+    return bool(os.environ.get("DATABASE_URL"))
+
+def q(sql):
+    """Adapt PostgreSQL %s placeholders to SQLite ? when running locally."""
+    if is_postgres():
+        return sql
+    return sql.replace("%s", "?")
 
 def safe_print(message):
     """Print function that handles Unicode characters safely on Windows"""
@@ -27,51 +31,97 @@ def safe_print(message):
         print(f"Print error: {str(e)}")
 
 def init_db():
-    #conn = sqlite3.connect(DB_PATH)
     conn = get_connection()
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY ,
-        username VARCHAR(50) UNIQUE NOT NULL,
-        email VARCHAR(100) UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        full_name VARCHAR(100) NOT NULL,
-        phone VARCHAR(15),
-        city VARCHAR(50),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS maps (
-        id SERIAL PRIMARY KEY ,
-        user_id INTEGER NOT NULL,
-        image BYTEA NULL,
-        filename VARCHAR(255),
-        file_type VARCHAR(10),
-        report TEXT,
-        status VARCHAR(20) DEFAULT 'pending',
-        payment_status VARCHAR(20) DEFAULT 'pending',
-        analysis_status VARCHAR(20) DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id)
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS payments (
-        id SERIAL PRIMARY KEY ,
-        user_id INTEGER NOT NULL,
-        map_id INTEGER NOT NULL,
-        amount DECIMAL(10,2) DEFAULT 50.00,
-        status VARCHAR(20) DEFAULT 'pending',
-        transaction_id VARCHAR(100),
-        payment_method VARCHAR(50) DEFAULT 'qr_code',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id),
-        FOREIGN KEY (map_id) REFERENCES maps (id)
-    )''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS feedback (
-            id SERIAL PRIMARY KEY ,
+    if is_postgres():
+        c.execute('''CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(50) UNIQUE NOT NULL,
+            email VARCHAR(100) UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            full_name VARCHAR(100) NOT NULL,
+            phone VARCHAR(15),
+            city VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS maps (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            image BYTEA NULL,
+            filename VARCHAR(255),
+            file_type VARCHAR(10),
+            report TEXT,
+            status VARCHAR(20) DEFAULT 'pending',
+            payment_status VARCHAR(20) DEFAULT 'pending',
+            analysis_status VARCHAR(20) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS payments (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            map_id INTEGER NOT NULL,
+            amount DECIMAL(10,2) DEFAULT 50.00,
+            status VARCHAR(20) DEFAULT 'pending',
+            transaction_id VARCHAR(100),
+            payment_method VARCHAR(50) DEFAULT 'qr_code',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (map_id) REFERENCES maps (id)
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS feedback (
+            id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL,
             map_id INTEGER NOT NULL,
             rule_name TEXT NOT NULL,
             was_correct BOOLEAN NOT NULL,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (map_id) REFERENCES maps(id)
+        )''')
+    else:
+        c.execute('''CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            full_name TEXT NOT NULL,
+            phone TEXT,
+            city TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS maps (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            image BLOB NULL,
+            filename TEXT,
+            file_type TEXT,
+            report TEXT,
+            status TEXT DEFAULT 'pending',
+            payment_status TEXT DEFAULT 'pending',
+            analysis_status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            map_id INTEGER NOT NULL,
+            amount REAL DEFAULT 50.00,
+            status TEXT DEFAULT 'pending',
+            transaction_id TEXT,
+            payment_method TEXT DEFAULT 'qr_code',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (map_id) REFERENCES maps (id)
+        )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            map_id INTEGER NOT NULL,
+            rule_name TEXT NOT NULL,
+            was_correct INTEGER NOT NULL,
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id),
@@ -85,8 +135,8 @@ def create_user(username, email, password_hash, full_name, phone, city):
     conn = get_connection()
     c = conn.cursor()
     try:
-        c.execute('''INSERT INTO users (username, email, password_hash, full_name, phone, city)
-                     VALUES (%s, %s, %s, %s, %s, %s)''',
+        c.execute(q('''INSERT INTO users (username, email, password_hash, full_name, phone, city)
+                     VALUES (%s, %s, %s, %s, %s, %s)'''),
                   (username, email, password_hash, full_name, phone, city))
         conn.commit()
         return c.lastrowid
@@ -101,7 +151,7 @@ def verify_user(username_or_email, password):
     # conn = sqlite3.connect(DB_PATH)
     conn = get_connection()
     c = conn.cursor()
-    c.execute('SELECT id, password_hash, full_name, city FROM users WHERE username = %s OR email = %s',
+    c.execute(q('SELECT id, password_hash, full_name, city FROM users WHERE username = %s OR email = %s'),
               (username_or_email, username_or_email))
     user = c.fetchone()
     conn.close()
@@ -114,8 +164,8 @@ def insert_map(user_id, image_data, filename, file_type):
     # conn = sqlite3.connect(DB_PATH)
     conn = get_connection()
     c = conn.cursor()
-    c.execute('''INSERT INTO maps (user_id, image, filename, file_type, report, status, payment_status, analysis_status)
-                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
+    c.execute(q('''INSERT INTO maps (user_id, image, filename, file_type, report, status, payment_status, analysis_status)
+                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)'''),
               (user_id, image_data, filename, file_type, 'Analysis pending...', 'pending', 'pending', 'pending'))
     conn.commit()
     map_id = c.lastrowid
@@ -127,7 +177,7 @@ def update_map_analysis(map_id, report, status):
         # conn = sqlite3.connect(DB_PATH)
         conn = get_connection()
         c = conn.cursor()
-        c.execute('''UPDATE maps SET report = %s, status = %s, analysis_status = 'completed' WHERE id = %s''',
+        c.execute(q('''UPDATE maps SET report = %s, status = %s, analysis_status = 'completed' WHERE id = %s'''),
                   (report, status, map_id))
         conn.commit()
         rows_affected = c.rowcount
@@ -150,8 +200,8 @@ def get_user_maps(user_id):
     # conn = sqlite3.connect(DB_PATH)
     conn = get_connection()
     c = conn.cursor()
-    c.execute('''SELECT id, status, payment_status, analysis_status, created_at, report, filename
-                 FROM maps WHERE user_id = %s ORDER BY created_at DESC''',
+    c.execute(q('''SELECT id, status, payment_status, analysis_status, created_at, report, filename
+                 FROM maps WHERE user_id = %s ORDER BY created_at DESC'''),
               (user_id,))
     maps = c.fetchall()
     conn.close()

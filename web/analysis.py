@@ -438,6 +438,8 @@ def analyze_map_with_ai(file_data, filename, file_type):
             evals.json_to_csv(temp_json_path)
             
             # Temporarily change working directory to ensure check_rules can find the output.json
+            # removal for deployment
+            '''
             original_cwd = os.getcwd()
             os.chdir(temp_dir)
             
@@ -461,7 +463,17 @@ def analyze_map_with_ai(file_data, filename, file_type):
                 raise Exception(f"Rule validation failed: {str(e)}")
             finally:
                 os.chdir(original_cwd)
+            '''
+
+            #added for deployment
+
+            # Run validation WITHOUT changing directory
+            print("Running rule validation...")
             
+            validation_results = check_rules.run_validation(base_path=temp_dir)
+            
+            print("Validation completed")
+
             # Parse validation results
             results = {}
             overall_status = "rejected"

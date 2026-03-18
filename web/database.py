@@ -1,12 +1,12 @@
 import sqlite3
 import os
 import psycopg2
-from urllib.parse import urlparse
 
 
+# -------------------------------
+# SQLite Adapters (unchanged)
+# -------------------------------
 class SQLiteCursorAdapter:
-    """Adapts SQLite cursor to accept PostgreSQL-style %s placeholders."""
-
     def __init__(self, cursor):
         self._cursor = cursor
 
@@ -47,32 +47,50 @@ class SQLiteConnectionAdapter:
 def _is_sqlite_connection(conn):
     return isinstance(conn, SQLiteConnectionAdapter) or isinstance(conn, sqlite3.Connection)
 
+
+# -------------------------------
+# 🔥 FIXED DATABASE CONNECTION
+# -------------------------------
 def get_connection():
     db_url = os.environ.get("DATABASE_URL")
 
+    # ✅ PostgreSQL (Render / Production)
     if db_url:
-        return psycopg2.connect(db_url, sslmode="require")
-        
-    else:
-        # fallback for local development
-        conn = sqlite3.connect("database.db")
-        conn.execute("PRAGMA foreign_keys = ON")
-        return SQLiteConnectionAdapter(conn)
-#DB_PATH = os.path.join(os.getcwd(), "database.db")
+        # Fix for Render (sometimes uses postgres://)
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
 
+        return psycopg2.connect(db_url, sslmode="require")
+
+    # ⚠️ SQLite (LOCAL ONLY)
+    else:
+        # ✅ ABSOLUTE PATH FIX (CRITICAL)
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(BASE_DIR, "database.db")
+
+        conn = sqlite3.connect(db_path)
+        conn.execute("PRAGMA foreign_keys = ON")
+
+        return SQLiteConnectionAdapter(conn)
+
+
+# -------------------------------
+# Utility
+# -------------------------------
 def safe_print(message):
-    """Print function that handles Unicode characters safely on Windows"""
     try:
         print(message)
     except UnicodeEncodeError:
-        # Replace problematic Unicode characters with ASCII alternatives
         safe_message = message.encode('ascii', 'replace').decode('ascii')
         print(safe_message)
     except Exception as e:
         print(f"Print error: {str(e)}")
 
+
+# -------------------------------
+# INIT DB
+# -------------------------------
 def init_db():
-    #conn = sqlite3.connect(DB_PATH)
     conn = get_connection()
     c = conn.cursor()
     using_sqlite = _is_sqlite_connection(conn)
@@ -80,8 +98,8 @@ def init_db():
     id_col = "INTEGER PRIMARY KEY AUTOINCREMENT" if using_sqlite else "SERIAL PRIMARY KEY"
     image_col = "BLOB" if using_sqlite else "BYTEA"
 
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-        id ''' + id_col + ''',
+    c.execute(f'''CREATE TABLE IF NOT EXISTS users (
+        id {id_col},
         username VARCHAR(50) UNIQUE NOT NULL,
         email VARCHAR(100) UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
@@ -90,10 +108,11 @@ def init_db():
         city VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS maps (
-        id ''' + id_col + ''',
+
+    c.execute(f'''CREATE TABLE IF NOT EXISTS maps (
+        id {id_col},
         user_id INTEGER NOT NULL,
-        image ''' + image_col + ''' NULL,
+        image {image_col} NULL,
         filename VARCHAR(255),
         file_type VARCHAR(10),
         report TEXT,
@@ -103,8 +122,9 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id)
     )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS payments (
-        id ''' + id_col + ''',
+
+    c.execute(f'''CREATE TABLE IF NOT EXISTS payments (
+        id {id_col},
         user_id INTEGER NOT NULL,
         map_id INTEGER NOT NULL,
         amount DECIMAL(10,2) DEFAULT 50.00,
@@ -116,22 +136,28 @@ def init_db():
         FOREIGN KEY (map_id) REFERENCES maps (id)
     )''')
 
-    c.execute('''CREATE TABLE IF NOT EXISTS feedback (
-            id ''' + id_col + ''',
-            user_id INTEGER NOT NULL,
-            map_id INTEGER NOT NULL,
-            rule_name TEXT NOT NULL,
-            was_correct BOOLEAN NOT NULL,
-            remark TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (map_id) REFERENCES maps(id)
-        )''')
+    c.execute(f'''CREATE TABLE IF NOT EXISTS feedback (
+        id {id_col},
+        user_id INTEGER NOT NULL,
+        map_id INTEGER NOT NULL,
+        rule_name TEXT NOT NULL,
+        was_correct BOOLEAN NOT NULL,
+        remark TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (map_id) REFERENCES maps(id)
+    )''')
+
     conn.commit()
     conn.close()
 
+
+# -------------------------------
+# USER FUNCTIONS
+# -------------------------------
+from werkzeug.security import check_password_hash
+
 def create_user(username, email, password_hash, full_name, phone, city):
-    #conn = sqlite3.connect(DB_PATH)
     conn = get_connection()
     c = conn.cursor()
     try:
@@ -143,7 +169,6 @@ def create_user(username, email, password_hash, full_name, phone, city):
         conn.commit()
         return user_id
     except Exception as e:
-        # Handle duplicate username/email cleanly for both SQLite and PostgreSQL.
         if isinstance(e, sqlite3.IntegrityError) or isinstance(e, psycopg2.IntegrityError):
             conn.rollback()
             return None
@@ -151,65 +176,66 @@ def create_user(username, email, password_hash, full_name, phone, city):
     finally:
         conn.close()
 
-from werkzeug.security import check_password_hash
 
 def verify_user(username_or_email, password):
-    # conn = sqlite3.connect(DB_PATH)
     conn = get_connection()
     c = conn.cursor()
     c.execute('SELECT id, password_hash, full_name, city FROM users WHERE username = %s OR email = %s',
               (username_or_email, username_or_email))
     user = c.fetchone()
     conn.close()
-    
+
     if user and check_password_hash(user[1], password):
         return {'id': user[0], 'full_name': user[2], 'city': user[3]}
     return None
 
+
+# -------------------------------
+# MAP FUNCTIONS
+# -------------------------------
 def insert_map(user_id, image_data, filename, file_type):
-    # conn = sqlite3.connect(DB_PATH)
     conn = get_connection()
     c = conn.cursor()
+
     c.execute('''INSERT INTO maps (user_id, image, filename, file_type, report, status, payment_status, analysis_status)
                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                  RETURNING id''',
               (user_id, image_data, filename, file_type, 'Analysis pending...', 'pending', 'pending', 'pending'))
+
     map_id = c.fetchone()[0]
     conn.commit()
     conn.close()
+
+    safe_print(f"Inserted map_id={map_id} for user_id={user_id}")  # ✅ debug
+
     return map_id
 
-def update_map_analysis(map_id, report, status):
-    try:
-        # conn = sqlite3.connect(DB_PATH)
-        conn = get_connection()
-        c = conn.cursor()
-        c.execute('''UPDATE maps SET report = %s, status = %s, analysis_status = 'completed' WHERE id = %s''',
-                  (report, status, map_id))
-        conn.commit()
-        rows_affected = c.rowcount
-        conn.close()
-        
-        if rows_affected == 0:
-            safe_print(f"Warning: No rows updated for map_id: {map_id}")
-        else:
-            safe_print(f"Successfully updated map_id: {map_id} with status: {status}")
-            
-    except Exception as e:
-        safe_print(f"Database update error for map_id {map_id}: {str(e)}")
-        try:
-            conn.close()
-        except:
-            pass
-        raise e
 
-def get_user_maps(user_id):
-    # conn = sqlite3.connect(DB_PATH)
+def update_map_analysis(map_id, report, status):
     conn = get_connection()
     c = conn.cursor()
+
+    c.execute('''UPDATE maps SET report = %s, status = %s, analysis_status = 'completed' WHERE id = %s''',
+              (report, status, map_id))
+
+    conn.commit()
+    rows_affected = c.rowcount
+    conn.close()
+
+    if rows_affected == 0:
+        safe_print(f"❌ No rows updated for map_id: {map_id}")
+    else:
+        safe_print(f"✅ Updated map_id: {map_id}")
+
+
+def get_user_maps(user_id):
+    conn = get_connection()
+    c = conn.cursor()
+
     c.execute('''SELECT id, status, payment_status, analysis_status, created_at, report, filename
                  FROM maps WHERE user_id = %s ORDER BY created_at DESC''',
               (user_id,))
+
     maps = c.fetchall()
     conn.close()
     return maps

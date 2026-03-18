@@ -380,7 +380,9 @@ def combine_room_results(*results):
     return passed_all, combined_logs, combined_struct
 
 def run_validation(base_path=None):
-    with open("output.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return process_rooms(data)
+    file_path = os.path.join(base_path or ".", "output.json")
 
+    with open(file_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    return process_rooms(data)

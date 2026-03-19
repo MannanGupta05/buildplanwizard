@@ -7,3 +7,12 @@ services:
       - poppler-utils
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn run_app:app
+
+  - type: worker
+    name: buildplanwizard-analysis-worker
+    env: python
+    plan: free
+    aptPackages:
+      - poppler-utils
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m web.worker

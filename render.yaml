@@ -6,4 +6,4 @@ services:
     aptPackages:
       - poppler-utils
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn run_app:app
+    startCommand: gunicorn web.app:app

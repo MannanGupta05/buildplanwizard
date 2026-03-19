@@ -4,11 +4,4 @@ services:
     runtime: python
     plan: free
     buildCommand: apt-get update && apt-get install -y poppler-utils && pip install -r requirements.txt
-    startCommand: gunicorn run_app:app
-
-  - type: worker
-    name: buildplanwizard-analysis-worker
-    runtime: python
-    plan: starter
-    buildCommand: apt-get update && apt-get install -y poppler-utils && pip install -r requirements.txt
-    startCommand: python -m web.worker
+    startCommand: gunicorn web.app:app

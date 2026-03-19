@@ -7,6 +7,9 @@ import os
 import threading
 from datetime import datetime
 
+ACTIVE_ANALYSIS_MAPS = set()
+ACTIVE_ANALYSIS_LOCK = threading.Lock()
+
 # DB_PATH = os.path.join(os.getcwd(), "database.db")
 
 # Handle both relative and absolute imports
@@ -64,6 +67,101 @@ def payment_required(f):
     return check_payment
 
 def register_routes(app):
+    def run_analysis_async(user_id, target_map_id):
+        import traceback
+        try:
+            conn = get_connection()
+            c = conn.cursor()
+            c.execute(
+                'SELECT image, filename, file_type FROM maps WHERE id = %s AND user_id = %s',
+                (target_map_id, user_id)
+            )
+            map_data = c.fetchone()
+            conn.close()
+
+            if not map_data:
+                update_map_analysis(
+                    target_map_id,
+                    "Analysis Error: Map data not found\nPlease try uploading again or contact support.",
+                    'error'
+                )
+                return
+
+            file_data, filename, file_type = map_data
+
+            # Mark processing while analysis thread is active.
+            conn = get_connection()
+            c = conn.cursor()
+            c.execute('UPDATE maps SET analysis_status = %s WHERE id = %s', ('processing', target_map_id))
+            conn.commit()
+            conn.close()
+
+            results, overall_status, raw_validation, validation_text = analyze_map_with_ai(file_data, filename, file_type)
+
+            if overall_status == "error" or "error" in results:
+                error_message = results.get("error", {}).get("message", "Unknown error occurred")
+                error_report = f"Analysis Error: {error_message}\nPlease try uploading again or contact support."
+                update_map_analysis(target_map_id, error_report, 'error')
+                return
+
+            report = f"Map Analysis Report for {filename}\n"
+            report += f"Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            report += f"Overall Status: {overall_status.upper()}\n"
+            report += "\n"
+
+            if results and any(k != "error" for k in results.keys()):
+                report += "RULE COMPLIANCE SUMMARY:\n"
+                report += "=" * 55 + "\n"
+
+                rule_mapping = {
+                    'Habitable Room': 'Habitable Room (Bedroom & Drawing Room)',
+                    'Bathroom': 'Bathroom',
+                    'Store': 'Store Room',
+                }
+
+                rule_counter = 1
+                for rule, result in results.items():
+                    if rule != "error":
+                        clean_rule_name = rule_mapping.get(rule, rule)
+
+                        if result['passed']:
+                            status_symbol = "✅"
+                            status_text = "PASSED"
+                            status_display = f"  {status_symbol} {status_text}  "
+                        else:
+                            status_symbol = "❌"
+                            status_text = "FAILED"
+                            status_display = f"  {status_symbol} {status_text}  "
+
+                        report += f"{rule_counter:2d}. {clean_rule_name:<40} {status_display}\n"
+                        rule_counter += 1
+
+                report += "=" * 55 + "\n"
+
+            update_map_analysis(target_map_id, report, overall_status)
+
+        except Exception as e:
+            traceback.print_exc()
+            error_report = f"Analysis Error: {str(e)}\nPlease try uploading again or contact support."
+            try:
+                update_map_analysis(target_map_id, error_report, 'error')
+            except Exception:
+                traceback.print_exc()
+        finally:
+            with ACTIVE_ANALYSIS_LOCK:
+                ACTIVE_ANALYSIS_MAPS.discard(target_map_id)
+
+    def start_analysis_thread(user_id, target_map_id):
+        with ACTIVE_ANALYSIS_LOCK:
+            if target_map_id in ACTIVE_ANALYSIS_MAPS:
+                return False
+            ACTIVE_ANALYSIS_MAPS.add(target_map_id)
+
+        thread = threading.Thread(target=run_analysis_async, args=(user_id, target_map_id))
+        thread.daemon = True
+        thread.start()
+        return True
+
     @app.route('/')
     def home():
         return redirect(url_for('welcome')) if 'user_id' in session else redirect(url_for('login'))
@@ -274,91 +372,7 @@ def register_routes(app):
         
         session['current_map_id'] = map_id
 
-        # Start analysis in a background thread so the request returns quickly.
-        def run_analysis_async(user_id, target_map_id):
-            import traceback
-            try:
-                conn = get_connection()
-                c = conn.cursor()
-                c.execute(
-                    'SELECT image, filename, file_type FROM maps WHERE id = %s AND user_id = %s',
-                    (target_map_id, user_id)
-                )
-                map_data = c.fetchone()
-                conn.close()
-
-                if not map_data:
-                    update_map_analysis(
-                        target_map_id,
-                        "Analysis Error: Map data not found\nPlease try uploading again or contact support.",
-                        'error'
-                    )
-                    return
-
-                file_data, filename, file_type = map_data
-
-                # Mark processing to avoid duplicate analysis triggers.
-                conn = get_connection()
-                c = conn.cursor()
-                c.execute('UPDATE maps SET analysis_status = %s WHERE id = %s', ('processing', target_map_id))
-                conn.commit()
-                conn.close()
-
-                results, overall_status, raw_validation, validation_text = analyze_map_with_ai(file_data, filename, file_type)
-
-                if overall_status == "error" or "error" in results:
-                    error_message = results.get("error", {}).get("message", "Unknown error occurred")
-                    error_report = f"Analysis Error: {error_message}\nPlease try uploading again or contact support."
-                    update_map_analysis(target_map_id, error_report, 'error')
-                    return
-
-                report = f"Map Analysis Report for {filename}\n"
-                report += f"Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                report += f"Overall Status: {overall_status.upper()}\n"
-                report += "\n"
-
-                if results and any(k != "error" for k in results.keys()):
-                    report += "RULE COMPLIANCE SUMMARY:\n"
-                    report += "=" * 55 + "\n"
-
-                    rule_mapping = {
-                        'Habitable Room': 'Habitable Room (Bedroom & Drawing Room)',
-                        'Bathroom': 'Bathroom',
-                        'Store': 'Store Room',
-                    }
-
-                    rule_counter = 1
-                    for rule, result in results.items():
-                        if rule != "error":
-                            clean_rule_name = rule_mapping.get(rule, rule)
-
-                            if result['passed']:
-                                status_symbol = "✅"
-                                status_text = "PASSED"
-                                status_display = f"  {status_symbol} {status_text}  "
-                            else:
-                                status_symbol = "❌"
-                                status_text = "FAILED"
-                                status_display = f"  {status_symbol} {status_text}  "
-
-                            report += f"{rule_counter:2d}. {clean_rule_name:<40} {status_display}\n"
-                            rule_counter += 1
-
-                    report += "=" * 55 + "\n"
-
-                update_map_analysis(target_map_id, report, overall_status)
-
-            except Exception as e:
-                traceback.print_exc()
-                error_report = f"Analysis Error: {str(e)}\nPlease try uploading again or contact support."
-                try:
-                    update_map_analysis(target_map_id, error_report, 'error')
-                except Exception:
-                    traceback.print_exc()
-
-        thread = threading.Thread(target=run_analysis_async, args=(session['user_id'], map_id))
-        thread.daemon = True
-        thread.start()
+        start_analysis_thread(session['user_id'], map_id)
 
         return redirect(url_for('analysis_progress', map_id=map_id))
 
@@ -635,7 +649,7 @@ def register_routes(app):
             # conn = sqlite3.connect(DB_PATH)
             conn = get_connection()
             c = conn.cursor()
-            c.execute('SELECT analysis_status, status, report FROM maps WHERE id = %s AND user_id = %s', (map_id, session['user_id']))
+            c.execute('SELECT analysis_status, status, report, payment_status FROM maps WHERE id = %s AND user_id = %s', (map_id, session['user_id']))
             result = c.fetchone()
             conn.close()
 
@@ -643,7 +657,15 @@ def register_routes(app):
                 print(f"Map not found for map_id: {map_id}, user_id: {session['user_id']}")
                 return jsonify({'analysis_completed': False, 'error': 'Map not found'})
                 
-            analysis_status, map_status, report = result
+            analysis_status, map_status, report, payment_status = result
+
+            # If Render restarted mid-analysis, recover by starting analysis again.
+            if payment_status == 'completed' and analysis_status in ('pending', 'processing'):
+                with ACTIVE_ANALYSIS_LOCK:
+                    is_active_here = map_id in ACTIVE_ANALYSIS_MAPS
+                if not is_active_here:
+                    start_analysis_thread(session['user_id'], map_id)
+
             analysis_completed = analysis_status == 'completed'
             
             print(f"Analysis status check for map_id {map_id}: analysis_status={analysis_status}, map_status={map_status}, completed={analysis_completed}")

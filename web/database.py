@@ -148,6 +148,19 @@ def init_db():
         FOREIGN KEY (map_id) REFERENCES maps(id)
     )''')
 
+    c.execute(f'''CREATE TABLE IF NOT EXISTS analysis_jobs (
+        id {id_col},
+        map_id INTEGER NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending',
+        attempts INTEGER DEFAULT 0,
+        last_error TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        started_at TIMESTAMP,
+        finished_at TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (map_id) REFERENCES maps(id)
+    )''')
+
     conn.commit()
     conn.close()
 
@@ -239,3 +252,144 @@ def get_user_maps(user_id):
     maps = c.fetchall()
     conn.close()
     return maps
+
+
+# -------------------------------
+# ANALYSIS JOB QUEUE FUNCTIONS
+# -------------------------------
+def set_map_analysis_status(map_id, analysis_status):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('''UPDATE maps SET analysis_status = %s WHERE id = %s''', (analysis_status, map_id))
+    conn.commit()
+    conn.close()
+
+
+def enqueue_analysis_job(map_id):
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        c.execute('''
+            SELECT id, status
+            FROM analysis_jobs
+            WHERE map_id = %s AND status IN ('pending', 'processing')
+            ORDER BY created_at DESC
+            LIMIT 1
+        ''', (map_id,))
+        existing_job = c.fetchone()
+
+        if existing_job:
+            conn.commit()
+            return existing_job[0]
+
+        c.execute('''
+            INSERT INTO analysis_jobs (map_id, status, attempts, updated_at)
+            VALUES (%s, 'pending', 0, CURRENT_TIMESTAMP)
+            RETURNING id
+        ''', (map_id,))
+        job_id = c.fetchone()[0]
+
+        c.execute('''
+            UPDATE maps
+            SET analysis_status = 'pending', status = 'pending', report = 'Analysis pending...'
+            WHERE id = %s
+        ''', (map_id,))
+
+        conn.commit()
+        return job_id
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def claim_next_analysis_job():
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        if _is_sqlite_connection(conn):
+            c.execute('''
+                SELECT id, map_id
+                FROM analysis_jobs
+                WHERE status = 'pending'
+                ORDER BY created_at ASC
+                LIMIT 1
+            ''')
+            next_job = c.fetchone()
+
+            if not next_job:
+                conn.commit()
+                return None
+
+            job_id, map_id = next_job
+            c.execute('''
+                UPDATE analysis_jobs
+                SET status = 'processing', attempts = attempts + 1, started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND status = 'pending'
+            ''', (job_id,))
+
+            if c.rowcount == 0:
+                conn.commit()
+                return None
+
+            conn.commit()
+            return job_id, map_id
+
+        c.execute('''
+            WITH next_job AS (
+                SELECT id, map_id
+                FROM analysis_jobs
+                WHERE status = 'pending'
+                ORDER BY created_at ASC
+                FOR UPDATE SKIP LOCKED
+                LIMIT 1
+            )
+            UPDATE analysis_jobs AS aj
+            SET status = 'processing', attempts = aj.attempts + 1, started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            FROM next_job
+            WHERE aj.id = next_job.id
+            RETURNING aj.id, aj.map_id
+        ''')
+        claimed_job = c.fetchone()
+        conn.commit()
+
+        if not claimed_job:
+            return None
+
+        return claimed_job[0], claimed_job[1]
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def mark_analysis_job_completed(job_id):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('''
+            UPDATE analysis_jobs
+            SET status = 'completed', finished_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, last_error = NULL
+            WHERE id = %s
+        ''', (job_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def mark_analysis_job_failed(job_id, error_message):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('''
+            UPDATE analysis_jobs
+            SET status = 'failed', finished_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, last_error = %s
+            WHERE id = %s
+        ''', (error_message, job_id))
+        conn.commit()
+    finally:
+        conn.close()

@@ -4,21 +4,17 @@ from functools import wraps
 import io
 import sys
 import os
-import psycopg2
 
 # DB_PATH = os.path.join(os.getcwd(), "database.db")
 
 # Handle both relative and absolute imports
 try:
     from .database import *
-    from .analysis import analyze_map_with_ai
 except ImportError:
     # Fallback for direct execution
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))
     from database import *
-    from analysis import analyze_map_with_ai
-import threading
-from datetime import datetime
+
 
 def safe_print(message):
     """Print function that handles Unicode characters safely on Windows"""
@@ -274,97 +270,8 @@ def register_routes(app):
         
         session['current_map_id'] = map_id
 
-        # Start analysis in background thread
-        def run_analysis_async(user_id, map_id):
-            import traceback
-            try:
-                # Get map data
-                # conn = sqlite3.connect(DB_PATH)
-                conn = get_connection()
-                c = conn.cursor()
-                c.execute('SELECT image, filename, file_type FROM maps WHERE id = %s AND user_id = %s', (map_id, user_id))
-                map_data = c.fetchone()
-                conn.close()
-                if not map_data:
-                    print(f"No map data found for map_id: {map_id}, user_id: {user_id}")
-                    update_map_analysis(map_id, "Analysis Error: Map data not found\nPlease try uploading again or contact support.", 'error')
-                    return
-                
-                file_data, filename, file_type = map_data
-                safe_print(f"Starting background analysis for {filename}")
-                
-                results, overall_status, raw_validation, validation_text = analyze_map_with_ai(file_data, filename, file_type)
-                
-                if overall_status == "error" or "error" in results:
-                    error_message = results.get("error", {}).get("message", "Unknown error occurred")
-                    error_report = f"Analysis Error: {error_message}\nPlease try uploading again or contact support."
-                    safe_print(f"Analysis failed with error: {error_message}")
-                    update_map_analysis(map_id, error_report, 'error')
-                else:
-                    report = f"Map Analysis Report for {filename}\n"
-                    report += f"Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                    report += f"Overall Status: {overall_status.upper()}\n"
-                    report += "\n"
-                    
-                    if results and any(k != "error" for k in results.keys()):
-                        report += "RULE COMPLIANCE SUMMARY:\n"
-                        report += "=" * 55 + "\n"
-                        
-                        # Define rule mapping for clean display
-                        rule_mapping = {
-                            'Habitable Room': 'Habitable Room (Bedroom & Drawing Room)',
-                            'Bathroom': 'Bathroom',
-                            'Store': 'Store Room',
-                            # Add more mappings as needed for other rules
-                        }
-                        
-                        # Counter for ordered numbering
-                        rule_counter = 1
-                        
-                        for rule, result in results.items():
-                            if rule != "error":
-                                try:
-                                    # Safely print debug info with Unicode handling
-                                    debug_message = str(result['message']).encode('ascii', 'replace').decode('ascii')
-                                    safe_print(f"DEBUG - Rule: {rule}, Backend Result: {result['passed']}, Message: {debug_message}")
-                                except Exception as print_error:
-                                    safe_print(f"DEBUG - Rule: {rule}, Backend Result: {result['passed']}, Message: [Unicode encoding error]")
-                                
-                                # Get clean rule name from mapping or use original
-                                clean_rule_name = rule_mapping.get(rule, rule)
-                                
-                                # Extract just the pass/fail status
-                                if result['passed']:
-                                    status_symbol = "✅"  # Green check mark emoji
-                                    status_text = "PASSED"
-                                    status_display = f"  {status_symbol} {status_text}  "
-                                else:
-                                    status_symbol = "❌"  # Red X emoji
-                                    status_text = "FAILED"
-                                    status_display = f"  {status_symbol} {status_text}  "
-                                
-                                # Format the line cleanly
-                                report += f"{rule_counter:2d}. {clean_rule_name:<40} {status_display}\n"
-                                rule_counter += 1
-                        report += "=" * 55 + "\n"
-
-                    safe_print(f"Analysis completed successfully. Updating database with status: {overall_status}")
-                    update_map_analysis(map_id, report, overall_status)
-                    safe_print(f"Database updated successfully for map_id: {map_id}")
-                    
-            except Exception as e:
-                safe_print(f"Exception in background analysis thread: {str(e)}")
-                traceback.print_exc()
-                error_report = f"Analysis Error: {str(e)}\nPlease try uploading again or contact support."
-                try:
-                    update_map_analysis(map_id, error_report, 'error')
-                    safe_print(f"Error status updated in database for map_id: {map_id}")
-                except Exception as db_error:
-                    safe_print(f"Failed to update database with error status: {str(db_error)}")
-
-        # Start thread
-        thread = threading.Thread(target=run_analysis_async, args=(session['user_id'], map_id))
-        thread.start()
+        # Enqueue analysis job for background worker service
+        enqueue_analysis_job(map_id)
 
         # Redirect to analysis progress page
         return redirect(url_for('analysis_progress', map_id=map_id))
@@ -411,76 +318,10 @@ def register_routes(app):
             flash('An error occurred while checking the map. Please try again.', 'error')
             return redirect(url_for('upload_map'))
         
-        # If analysis not done, perform it
-        if analysis_status == 'pending':
+        # If analysis is not completed yet, keep user on progress page.
+        if analysis_status in ('pending', 'processing'):
             flash('Analysis in progress... This may take a few minutes.', 'info')
-            
-            try:
-                # Perform actual AI analysis
-                results, overall_status, raw_validation, validation_text = analyze_map_with_ai(file_data, filename, file_type)
-                
-                # Check if analysis failed
-                if overall_status == "error" or "error" in results:
-                    error_message = results.get("error", {}).get("message", "Unknown error occurred")
-                    error_report = f"Analysis Error: {error_message}\nPlease try uploading again or contact support."
-                    update_map_analysis(map_id, error_report, 'error')
-                    status = 'error'
-                    flash('Analysis failed. Please try again or contact support.', 'error')
-                else:
-                    # Generate report - analysis was successful
-                    report = f"Map Analysis Report for {filename}\n"
-                    report += f"Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                    report += f"Overall Status: {overall_status.upper()}\n"
-                    report += "\n"
-                    
-                    # Add summary if we have parsed results
-                    if results and any(k != "error" for k in results.keys()):
-                        report += "RULE COMPLIANCE SUMMARY:\n"
-                        
-                        # Define rule mapping for clean display
-                        rule_mapping = {
-                            'Habitable Room': 'Habitable Room (Bedroom & Drawing Room)',
-                            'Bathroom': 'Bathroom',
-                            'Store': 'Store Room',
-                            # Add more mappings as needed for other rules
-                        }
-                        
-                        # Counter for ordered numbering
-                        rule_counter = 1
-                        
-                        for rule, result in results.items():
-                            if rule != "error":
-                                # Get clean rule name from mapping or use original
-                                clean_rule_name = rule_mapping.get(rule, rule)
-                                
-                                # Extract just the pass/fail status
-                                if result['passed']:
-                                    status_symbol = "✅"  # Green check mark emoji
-                                    status_text = "PASSED"
-                                    status_display = f"  {status_symbol} {status_text}  "
-                                else:
-                                    status_symbol = "❌"  # Red X emoji
-                                    status_text = "FAILED"
-                                    status_display = f"  {status_symbol} {status_text}  "
-                                
-                                # Format the line cleanly
-                                report += f"{rule_counter:2d}. {clean_rule_name:<40} {status_display}\n"
-                                rule_counter += 1
-                        report += "=" * 55 + "\n"
-                    # Update database with successful analysis
-                    update_map_analysis(map_id, report, overall_status)
-                    status = overall_status
-                    
-                    flash(f'Analysis completed! Status: {overall_status.upper()}', 'success' if overall_status == 'approved' else 'warning')
-                
-            except Exception as e:
-                print(f"Exception in analysis: {str(e)}")
-                import traceback
-                traceback.print_exc()
-                error_report = f"Analysis Error: {str(e)}\nPlease try uploading again or contact support."
-                update_map_analysis(map_id, error_report, 'error')
-                status = 'error'
-                flash('Analysis failed. Please try again or contact support.', 'error')
+            return redirect(url_for('analysis_progress', map_id=map_id))
         
         return render_template('check_map.html', 
                             map_id=map_id, 

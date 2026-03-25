@@ -4,4 +4,4 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn web.app:app
+    startCommand: gunicorn web.app:app --timeout 300 --workers 1

@@ -6,6 +6,7 @@ import tempfile
 import json
 import shutil
 import traceback
+import psutil
 from PIL import Image
 import google.generativeai as genai
 from src.core import utils
@@ -20,11 +21,19 @@ except ImportError:
 
 import evals
 
+def print_memory_usage(label=""):
+    """Print current process RAM usage in MB for debugging on Render logs."""
+    process = psutil.Process(os.getpid())
+    mem = process.memory_info().rss  # in bytes
+    prefix = f"{label} " if label else ""
+    print(f"{prefix}Memory usage: {mem / (1024 ** 2):.2f} MB", flush=True)
+
 def analyze_map_with_ai(file_data, filename, file_type):
     """
     Enhanced map analysis function with simplified structure using buildplanwizard
     """
     validation_text = ""
+    mem_after_pdf = None  # Track memory after PDF conversion
     
     try:
         print(f"Starting analysis for {filename} (type: {file_type})")
@@ -56,6 +65,11 @@ def analyze_map_with_ai(file_data, filename, file_type):
                 except Exception as e:
                     print(f"Image loading error: {e}")
                     raise Exception(f"Image loading failed: {str(e)}")
+            
+            # Capture memory usage after PDF conversion for tracking through final result
+            process = psutil.Process(os.getpid())
+            mem_after_pdf = process.memory_info().rss
+            print_memory_usage("[Analysis] After PDF conversion")
             
             print("Creating segments...")
             processed_image, boxs = create_segments(input_map_image, model="YOLO")
@@ -526,7 +540,17 @@ def analyze_map_with_ai(file_data, filename, file_type):
                     overall_status = "rejected"
 
             print(f"Analysis completed successfully. Status: {overall_status}")
-            return results, overall_status, validation_results, validation_text
+            
+            # Print memory usage after full analysis
+            mem_final = process.memory_info().rss
+            print_memory_usage("[Analysis] Before returning final result")
+            if mem_after_pdf is not None:
+                delta_mb = (mem_final - mem_after_pdf) / (1024 ** 2)
+                print(
+                    f"[Analysis] Total RAM delta (PDF->Final result): {delta_mb:.2f} MB",
+                    flush=True,
+                )
+            
 
             
         finally:

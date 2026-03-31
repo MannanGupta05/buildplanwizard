@@ -1,5 +1,6 @@
 import re 
 import json
+import os
 
 # Room validation thresholds
 ROOM_RULES = {

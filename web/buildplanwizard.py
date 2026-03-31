@@ -3,6 +3,7 @@
 
 import os
 import sys
+import psutil
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
@@ -27,9 +28,20 @@ except ImportError:
 
 import platform
 
+def print_memory_usage(label=""):
+    """Print current process RAM usage in MB for debugging on Render logs."""
+    process = psutil.Process(os.getpid())
+    mem = process.memory_info().rss  # in bytes
+    prefix = f"{label} " if label else ""
+    print(f"{prefix}Memory usage: {mem / (1024 ** 2):.2f} MB", flush=True)
+
 def read_pdf(file_path):
     """Convert PDF to image and return the first page"""
     try:
+        process = psutil.Process(os.getpid())
+        mem_before = process.memory_info().rss
+        print_memory_usage("[PDF->Image] Before conversion")
+
         # On Windows use bundled poppler
         if platform.system() == "Windows":
             poppler_path = os.path.join(config.MAIN_PATH, "poppler-24.08.0", "Library", "bin")
@@ -37,6 +49,13 @@ def read_pdf(file_path):
         else:
             # On Linux (Render) poppler is installed in system PATH
             images = convert_from_path(file_path, dpi=300)
+
+        mem_after = process.memory_info().rss
+        print_memory_usage("[PDF->Image] After conversion")
+        print(
+            f"[PDF->Image] RAM delta: {(mem_after - mem_before) / (1024 ** 2):.2f} MB",
+            flush=True,
+        )
 
         if not images:
             raise Exception("Failed to convert PDF to image")

@@ -4,6 +4,7 @@
 import os
 import sys
 import psutil
+import fitz  # PyMuPDF
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
@@ -42,13 +43,36 @@ def read_pdf(file_path):
         mem_before = process.memory_info().rss
         print_memory_usage("[PDF->Image] Before conversion")
 
+        # Current logic: Use PyMuPDF for lower RAM usage.
+        doc = fitz.open(file_path)
+        try:
+            page = doc.load_page(0)  # first page only
+
+            # Lower resolution for better memory efficiency.
+            zoom = 1.5
+            mat = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=mat)
+
+            mode = "RGBA" if pix.alpha else "RGB"
+            image = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+            if mode == "RGBA":
+                image = image.convert("RGB")
+        finally:
+            doc.close()
+
+        # Previous logic (pdf2image) kept for easy rollback.
         # On Windows use bundled poppler
-        if platform.system() == "Windows":
-            poppler_path = os.path.join(config.MAIN_PATH, "poppler-24.08.0", "Library", "bin")
-            images = convert_from_path(file_path, dpi=300, poppler_path=poppler_path)
-        else:
-            # On Linux (Render) poppler is installed in system PATH
-            images = convert_from_path(file_path, dpi=300)
+        # if platform.system() == "Windows":
+        #     poppler_path = os.path.join(config.MAIN_PATH, "poppler-24.08.0", "Library", "bin")
+        #     images = convert_from_path(file_path, dpi=300, poppler_path=poppler_path)
+        # else:
+        #     # On Linux (Render) poppler is installed in system PATH
+        #     images = convert_from_path(file_path, dpi=300)
+
+        # if not images:
+        #     raise Exception("Failed to convert PDF to image")
+
+        # image = images[0]
 
         mem_after = process.memory_info().rss
         print_memory_usage("[PDF->Image] After conversion")
@@ -57,10 +81,7 @@ def read_pdf(file_path):
             flush=True,
         )
 
-        if not images:
-            raise Exception("Failed to convert PDF to image")
-
-        return images[0]
+        return image
 
     except Exception as e:
         raise Exception(f"PDF conversion failed: {str(e)}")

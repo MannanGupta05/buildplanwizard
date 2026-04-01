@@ -33,6 +33,7 @@ def analyze_map_with_ai(file_data, filename, file_type):
     Enhanced map analysis function with simplified structure using buildplanwizard
     """
     validation_text = ""
+    raw_validation = None
     mem_after_pdf = None  # Track memory after PDF conversion
     
     try:
@@ -485,6 +486,7 @@ def analyze_map_with_ai(file_data, filename, file_type):
             print("Running rule validation...")
             
             validation_results = check_rules.run_validation(base_path=temp_dir)
+            raw_validation = validation_results
             
             print("Validation completed")
 
@@ -495,6 +497,7 @@ def analyze_map_with_ai(file_data, filename, file_type):
             if validation_results and isinstance(validation_results, dict):
                 structured = validation_results.get("structured", {})
                 logs = validation_results.get("logs", [])
+                validation_text = "\n\n".join(logs) if logs else ""
 
                 # Track rule validation results
                 rules_passed = 0
@@ -550,6 +553,8 @@ def analyze_map_with_ai(file_data, filename, file_type):
                     f"[Analysis] Total RAM delta (PDF->Final result): {delta_mb:.2f} MB",
                     flush=True,
                 )
+
+            return results, overall_status, raw_validation, validation_text
             
 
             

@@ -211,7 +211,14 @@
                     <li class="nav-item"><a class="nav-link" href="{{ url_for('upload_map') }}">Upload Map</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ url_for('history') }}">History</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">Logout</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{{ url_for('all_feedback') }}"><i class="fas fa-comments"></i> Feedback</a></li>
+                    <!-- <li class="nav-item"><a class="nav-link" href="{{ url_for('all_feedback') }}"><i class="fas fa-comments"></i> Feedback</a></li> -->
+                     {% if session.get('is_admin') %}
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('all_feedback') }}">
+        <i class="fas fa-comments"></i> Feedback
+    </a>
+</li>
+{% endif %}
                 </ul>
             </div>
             {% endif %}

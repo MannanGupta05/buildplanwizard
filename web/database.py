@@ -99,14 +99,15 @@ def init_db():
     image_col = "BLOB" if using_sqlite else "BYTEA"
 
     c.execute(f'''CREATE TABLE IF NOT EXISTS users (
-        id {id_col},
-        username VARCHAR(50) UNIQUE NOT NULL,
-        email VARCHAR(100) UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        full_name VARCHAR(100) NOT NULL,
-        phone VARCHAR(15),
-        city VARCHAR(50),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id {id_col},
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(15),
+    city VARCHAR(50),
+    is_admin BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
     c.execute(f'''CREATE TABLE IF NOT EXISTS maps (
@@ -161,8 +162,38 @@ def init_db():
         FOREIGN KEY (map_id) REFERENCES maps(id)
     )''')
 
+
+
+    # ✅ AUTO-CREATE ADMIN IF NONE EXISTS
+    c.execute("SELECT COUNT(*) FROM users WHERE is_admin = %s", (True,))
+    admin_exists = c.fetchone()[0]
+
+    if admin_exists == 0:
+        from werkzeug.security import generate_password_hash
+        
+        default_username = "admin"
+        default_password = generate_password_hash("admin123")  # 🔐 change later!
+        
+        try:
+            c.execute('''
+                INSERT INTO users (username, email, password_hash, full_name, phone, city, is_admin)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ''', (
+                default_username,
+                "admin@example.com",
+                default_password,
+                "Admin User",
+                "",
+                "",
+                True
+            ))
+            print("✅ Default admin created (username: admin, password: admin123)")
+        except Exception as e:
+            print(f"Admin creation skipped: {e}")
+
     conn.commit()
     conn.close()
+
 
 
 # -------------------------------
@@ -193,13 +224,15 @@ def create_user(username, email, password_hash, full_name, phone, city):
 def verify_user(username_or_email, password):
     conn = get_connection()
     c = conn.cursor()
-    c.execute('SELECT id, password_hash, full_name, city FROM users WHERE username = %s OR email = %s',
-              (username_or_email, username_or_email))
+    # c.execute('SELECT id, password_hash, full_name, city FROM users WHERE username = %s OR email = %s',
+    #           (username_or_email, username_or_email))
+    c.execute('SELECT id, password_hash, full_name, city, is_admin FROM users WHERE username = %s OR email = %s',
+          (username_or_email, username_or_email))
     user = c.fetchone()
     conn.close()
-
+    
     if user and check_password_hash(user[1], password):
-        return {'id': user[0], 'full_name': user[2], 'city': user[3]}
+        return {'id': user[0], 'full_name': user[2], 'city': user[3], 'is_admin': user[4]}
     return None
 
 

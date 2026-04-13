@@ -43,6 +43,15 @@ def login_required(f):
         return f(*args, **kwargs)
     return check_login
 
+
+def admin_required(f):
+    @wraps(f)
+    def check_admin(*args, **kwargs):
+        if not session.get('is_admin'):
+            flash('Admin access only.', 'error')
+            return redirect(url_for('home'))
+        return f(*args, **kwargs)
+    return check_admin
 def payment_required(f):
     @wraps(f)
     def check_payment(*args, **kwargs):
@@ -247,6 +256,7 @@ def register_routes(app):
                 session['username'] = username
                 session['full_name'] = user['full_name']
                 session['city'] = user['city']
+                session['is_admin'] = user.get('is_admin', False)
                 flash('Login successful! Welcome back.', 'success')
                 return redirect(url_for('welcome'))
             else:
@@ -294,11 +304,26 @@ def register_routes(app):
                 file_type = filename.rsplit('.', 1)[1].lower()
                 
                 # Insert map into database
+                # map_id = insert_map(session['user_id'], file_data, filename, file_type)
+                # session['current_map_id'] = map_id
+                
+                # flash('Map uploaded successfully! Please proceed to payment.', 'success')
+                # return redirect(url_for('payment', map_id=map_id))
                 map_id = insert_map(session['user_id'], file_data, filename, file_type)
                 session['current_map_id'] = map_id
-                
-                flash('Map uploaded successfully! Please proceed to payment.', 'success')
-                return redirect(url_for('payment', map_id=map_id))
+
+                # ✅ Mark payment as completed automatically
+                conn = get_connection()
+                c = conn.cursor()
+                c.execute('UPDATE maps SET payment_status = %s WHERE id = %s', ('completed', map_id))
+                conn.commit()
+                conn.close()
+
+                # ✅ Start analysis directly
+                start_analysis_thread(session['user_id'], map_id)
+
+                flash('Map uploaded successfully! Analysis started.', 'success')
+                return redirect(url_for('analysis_progress', map_id=map_id))
                 
             except Exception as e:
                 flash('Error uploading file. Please try again.', 'error')
@@ -378,7 +403,8 @@ def register_routes(app):
 
     @app.route('/check_map')
     @login_required
-    @payment_required
+    # @payment_required
+
     def check_map():
         map_id = session['current_map_id']
     
@@ -542,6 +568,7 @@ def register_routes(app):
     
     @app.route('/all_feedback')
     @login_required  # optionally add @admin_required
+    @login_required
     def all_feedback():
         # conn = sqlite3.connect(DB_PATH)
         conn = get_connection()

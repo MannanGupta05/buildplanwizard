@@ -55,6 +55,10 @@ def _flatten_dimension_values(value):
     else:
         yield value
 
+
+def _is_extraction_failed(entry):
+    return isinstance(entry, dict) and entry.get("_extraction_success") is False
+
 # ---------- Rule 1 ----------
 def calculate_max_coverage(plot_area):
     if 60 <= plot_area <= 100:
@@ -74,6 +78,17 @@ def calculate_max_coverage(plot_area):
 def check_ground_coverage(area_data):
     logs, structured, passed = [], [], True
     for entry in area_data:
+        if _is_extraction_failed(entry):
+            passed = False
+            logs.append("Ground Coverage data could not be extracted from the plan.")
+            structured.append({
+                "rule": "Ground Coverage",
+                "recorded_value": "Unknown (extraction failed)",
+                "expected_value": "Valid extracted data",
+                "status": "Fail",
+                "reason": "API extraction failed - unable to validate"
+            })
+            continue
         plot = entry.get("total_plot_area", [0])[0]
         covered = entry.get("total_covered_area", [0])[0]
         max_cov = calculate_max_coverage(plot)
@@ -94,6 +109,17 @@ def check_ground_coverage(area_data):
 def check_far(area_data):
     logs, structured, passed = [], [], True
     for entry in area_data:
+        if _is_extraction_failed(entry):
+            passed = False
+            logs.append("FAR data could not be extracted from the plan.")
+            structured.append({
+                "rule": "FAR",
+                "recorded_value": "Unknown (extraction failed)",
+                "expected_value": "Valid extracted data",
+                "status": "Fail",
+                "reason": "API extraction failed - unable to validate"
+            })
+            continue
         plot = entry.get("total_plot_area", [0])[0]
         covered = entry.get("total_covered_area", [0])[0]
         max_far = 2.1 * plot
@@ -115,12 +141,35 @@ def check_room_dimensions(room_type, room_data):
     rule = ROOM_RULES[room_type]
     logs, structured, passed = [], [], True
     for room_entry in room_data:
+        if _is_extraction_failed(room_entry):
+            passed = False
+            logs.append(f"{room_type.title()} data could not be extracted from the plan.")
+            structured.append({
+                "rule": f"{room_type.title()} Dimensions",
+                "recorded_value": "Unknown (extraction failed)",
+                "expected_value": "Valid extracted data",
+                "status": "Fail",
+                "reason": "API extraction failed - unable to validate"
+            })
+            continue
         if not isinstance(room_entry, (list, tuple)) or len(room_entry) < 2:
             passed = False
             logs.append(f"{room_type.title()} entry has unexpected format: {room_entry}")
             continue
 
         dims, floor = room_entry[0], room_entry[1]
+        if _is_extraction_failed(dims):
+            passed = False
+            logs.append(f"{room_type.title()} data could not be extracted from the plan.")
+            structured.append({
+                "rule": f"{room_type.title()} Dimensions",
+                "floor": floor[0] if isinstance(floor, list) and floor else floor,
+                "recorded_value": "Unknown (extraction failed)",
+                "expected_value": "Valid extracted data",
+                "status": "Fail",
+                "reason": "API extraction failed - unable to validate"
+            })
+            continue
         floor_label = floor[0] if isinstance(floor, list) and floor else floor
         for dim in _flatten_dimension_values(dims):
             if dim is None:
@@ -185,6 +234,17 @@ def check_staircase(data):
     rule = ROOM_RULES["riser_treader_width"]
     logs, structured, passed = [], [], True
     for entry in data:
+        if _is_extraction_failed(entry):
+            passed = False
+            logs.append("Staircase data could not be extracted from the plan.")
+            structured.append({
+                "rule": "Staircase",
+                "recorded_value": "Unknown (extraction failed)",
+                "expected_value": "Valid extracted data",
+                "status": "Fail",
+                "reason": "API extraction failed - unable to validate"
+            })
+            continue
         width = entry.get("staircase_width", ["absent"])[0]
         tread = entry.get("staircase_tread", ["absent"])[0]
         riser = entry.get("staircase_riser", ["absent"])[0]
@@ -224,6 +284,17 @@ def check_staircase(data):
 def check_plinth_level(data):
     logs, structured, passed = [], [], True
     for entry in data:
+        if _is_extraction_failed(entry):
+            passed = False
+            logs.append("Plinth level data could not be extracted from the plan.")
+            structured.append({
+                "rule": "Plinth Level",
+                "recorded_value": "Unknown (extraction failed)",
+                "expected_value": "Valid extracted data",
+                "status": "Fail",
+                "reason": "API extraction failed - unable to validate"
+            })
+            continue
         plinth = entry.get("plinth level", ["absent"])[0]
         if plinth == "absent":
             continue
@@ -255,6 +326,17 @@ def check_plinth_level(data):
 def check_building_height(data):
     logs, structured, passed = [], [], True
     for entry in data:
+        if _is_extraction_failed(entry):
+            passed = False
+            logs.append("Building height data could not be extracted from the plan.")
+            structured.append({
+                "rule": "Building Height",
+                "recorded_value": "Unknown (extraction failed)",
+                "expected_value": "Valid extracted data",
+                "status": "Fail",
+                "reason": "API extraction failed - unable to validate"
+            })
+            continue
         height = entry.get("height", ["absent"])[0]
         plinth = entry.get("plinth level", ["absent"])[0]
         if "absent" in [height, plinth]:
@@ -290,6 +372,17 @@ def check_floor_count(floor_data):
     logs, structured, passed = [], [], True
     
     for entry in floor_data:
+        if _is_extraction_failed(entry):
+            passed = False
+            logs.append("Floor count data could not be extracted from the plan.")
+            structured.append({
+                "rule": "Floor Count Limit",
+                "recorded_value": "Unknown (extraction failed)",
+                "expected_value": f"Valid integer ≤ {MAX_PERMITTED_FLOORS}",
+                "status": "Fail",
+                "reason": "API extraction failed - unable to validate"
+            })
+            continue
         floor_count = entry.get("floor_count", [0])[0]
         
         try:

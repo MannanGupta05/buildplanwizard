@@ -53,10 +53,12 @@ class BaseExtractor:
             query_text = self._get_query_text()
             
             # Call the AI model for extraction
-            response = self._call_ai_model(processed_image, prompt, model)
+            response, extraction_success = self._call_ai_model(processed_image, prompt, model)
             
             # Process the raw response
             processed_data = self._process_extracted_data(response)
+            if isinstance(processed_data, dict):
+                processed_data["_extraction_success"] = extraction_success
             
             # Format final output
             final_output = self._format_final_output([processed_data])
@@ -66,7 +68,10 @@ class BaseExtractor:
         except Exception as e:
             print(f"Extraction error in {self.__class__.__name__}: {str(e)}")
             # Return default/empty structure on error
-            return self._get_default_output()
+            default_output = self._get_default_output()
+            if isinstance(default_output, dict):
+                default_output["_extraction_success"] = False
+            return default_output
     
     def _call_ai_model(self, image, prompt, model):
         """
@@ -78,7 +83,7 @@ class BaseExtractor:
             model: AI model instance
             
         Returns:
-            dict: Parsed JSON response from the model
+            tuple: (Parsed JSON response from the model, extraction success flag)
         """
         try:
             # Convert PIL image to bytes for model input
@@ -99,11 +104,11 @@ class BaseExtractor:
             # Try to extract JSON from the response
             json_response = self._extract_json_from_response(response_text)
             
-            return json_response
+            return json_response, bool(json_response)
             
         except Exception as e:
             print(f"AI model call error: {str(e)}")
-            return {}
+            return {}, False
     
     def _extract_json_from_response(self, response_text):
         """

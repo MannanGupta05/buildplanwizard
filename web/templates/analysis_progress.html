@@ -2,27 +2,344 @@
 
 {% block title %}Analysis in Progress - Map Analysis System{% endblock %}
 
+{% block extra_css %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+    :root {
+        --progress-track: rgba(14, 42, 69, 0.14);
+        --progress-fill-a: #0ea5e9;
+        --progress-fill-b: #22d3ee;
+        --progress-fill-c: #14b8a6;
+        --ink-strong: #0f172a;
+        --ink-soft: #334155;
+        --card-sheen: rgba(255, 255, 255, 0.34);
+    }
+
+    .progress-shell {
+        max-width: 760px;
+        margin: 3rem auto;
+        background: linear-gradient(130deg, rgba(255, 255, 255, 0.92), rgba(245, 252, 255, 0.86));
+        border: 1px solid var(--card-sheen);
+        border-radius: 28px;
+        padding: 2.2rem;
+        box-shadow: 0 18px 45px rgba(12, 36, 58, 0.2);
+        position: relative;
+        overflow: hidden;
+        animation: riseIn 0.65s ease-out;
+    }
+
+    .progress-shell::before,
+    .progress-shell::after {
+        content: '';
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(0.5px);
+        pointer-events: none;
+    }
+
+    .progress-shell::before {
+        width: 280px;
+        height: 280px;
+        background: radial-gradient(circle, rgba(14, 165, 233, 0.2) 0%, rgba(14, 165, 233, 0) 70%);
+        top: -130px;
+        right: -90px;
+    }
+
+    .progress-shell::after {
+        width: 220px;
+        height: 220px;
+        background: radial-gradient(circle, rgba(20, 184, 166, 0.18) 0%, rgba(20, 184, 166, 0) 70%);
+        left: -80px;
+        bottom: -95px;
+    }
+
+    .status-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.42rem 0.85rem;
+        border-radius: 999px;
+        background: rgba(14, 165, 233, 0.13);
+        color: #0369a1;
+        font: 600 0.78rem/1 'JetBrains Mono', monospace;
+        letter-spacing: 0.03em;
+        margin-bottom: 1rem;
+        text-transform: uppercase;
+    }
+
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #0ea5e9;
+        box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.6);
+        animation: pulseDot 1.4s infinite;
+    }
+
+    .progress-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: clamp(1.5rem, 3vw, 2.1rem);
+        font-weight: 700;
+        color: var(--ink-strong);
+        letter-spacing: -0.02em;
+        margin-bottom: 0.4rem;
+    }
+
+    .progress-subtitle {
+        color: var(--ink-soft);
+        margin-bottom: 1.6rem;
+    }
+
+    .progress-stats {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 0.5rem;
+        gap: 1rem;
+    }
+
+    .percent-display {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: clamp(2rem, 7vw, 3.2rem);
+        font-weight: 700;
+        color: #0c4a6e;
+        line-height: 1;
+    }
+
+    .eta-display {
+        font-family: 'JetBrains Mono', monospace;
+        color: #0f766e;
+        font-size: 0.84rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .progress-track {
+        width: 100%;
+        height: 18px;
+        background: var(--progress-track);
+        border-radius: 999px;
+        overflow: hidden;
+        border: 1px solid rgba(15, 118, 110, 0.15);
+        margin-bottom: 1rem;
+    }
+
+    .progress-fill {
+        width: 0;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--progress-fill-a), var(--progress-fill-b), var(--progress-fill-c));
+        background-size: 200% 100%;
+        animation: gradientMove 2.6s linear infinite;
+        transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+        position: relative;
+    }
+
+    .progress-fill::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.35) 45%, transparent 100%);
+        transform: translateX(-100%);
+        animation: sweep 1.9s ease-in-out infinite;
+    }
+
+    .step-text {
+        font-size: 1rem;
+        color: #0f172a;
+        min-height: 1.6rem;
+    }
+
+    .stage-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.55rem;
+        margin-top: 1.3rem;
+    }
+
+    .stage-item {
+        background: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 12px;
+        text-align: center;
+        padding: 0.6rem 0.5rem;
+        font: 600 0.75rem/1.3 'JetBrains Mono', monospace;
+        color: #64748b;
+        transition: all 0.3s ease;
+    }
+
+    .stage-item.active {
+        color: #0f766e;
+        border-color: rgba(15, 118, 110, 0.45);
+        background: rgba(20, 184, 166, 0.12);
+        transform: translateY(-2px);
+    }
+
+    .tip-box {
+        margin-top: 1.5rem;
+        border-radius: 14px;
+        border: 1px dashed rgba(14, 116, 144, 0.45);
+        background: rgba(236, 254, 255, 0.75);
+        padding: 0.85rem 1rem;
+        color: #155e75;
+        font-size: 0.94rem;
+    }
+
+    @keyframes pulseDot {
+        0% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.55); }
+        70% { box-shadow: 0 0 0 10px rgba(14, 165, 233, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+    }
+
+    @keyframes gradientMove {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 100% 50%; }
+    }
+
+    @keyframes sweep {
+        100% { transform: translateX(100%); }
+    }
+
+    @keyframes riseIn {
+        from { opacity: 0; transform: translateY(16px) scale(0.99); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @media (max-width: 768px) {
+        .progress-shell {
+            margin: 1.2rem auto;
+            padding: 1.4rem;
+            border-radius: 22px;
+        }
+
+        .stage-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container text-center mt-5">
-    <div class="spinner-border text-primary" style="width: 4rem; height: 4rem;" role="status">
-        <span class="visually-hidden">Loading...</span>
+<div class="progress-shell">
+    <div class="status-chip">
+        <span class="status-dot"></span>
+        analysis running
     </div>
-    <h2 class="mt-4">Analysis in Progress...</h2>
-    <p class="lead">Please wait while we analyze your map for compliance. This may take a few minutes.</p>
+    <h2 class="progress-title">Map analysis in progress</h2>
+    <p class="progress-subtitle">We are extracting dimensions, validating rules, and generating your final compliance report.</p>
+
+    <div class="progress-stats">
+        <div id="percentDisplay" class="percent-display">0%</div>
+        <div id="etaDisplay" class="eta-display">estimating time...</div>
+    </div>
+
+    <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Analysis progress">
+        <div id="progressFill" class="progress-fill"></div>
+    </div>
+
+    <div id="stepText" class="step-text">Initializing analysis pipeline...</div>
+
+    <div class="stage-grid">
+        <div id="stage1" class="stage-item">Queued</div>
+        <div id="stage2" class="stage-item">Extracting</div>
+        <div id="stage3" class="stage-item">Validating</div>
+        <div id="stage4" class="stage-item">Finalizing</div>
+    </div>
+
+    <div id="tipBox" class="tip-box">Tip: Keep this page open. You will be redirected automatically once results are ready.</div>
 </div>
+
+{% endblock %}
+
+{% block extra_js %}
 <script>
     let pollCount = 0;
-    const maxPolls = 100; // Maximum 5 minutes of polling (100 * 3 seconds)
-    
-    // Poll the server every 3 seconds to check analysis status
+    const maxPolls = 100;
+    const tipMessages = [
+        "Tip: Keep this page open. You will be redirected automatically once results are ready.",
+        "We prioritize accuracy over speed, so validation can take a little time.",
+        "Your uploaded map remains linked only to your account and report.",
+        "If this takes unusually long, the system automatically retries in the background."
+    ];
+
+    function formatEta(elapsedSeconds, percent) {
+        if (percent >= 100) {
+            return "done";
+        }
+        if (percent <= 3 || elapsedSeconds <= 0) {
+            return "estimating time...";
+        }
+
+        const rate = percent / elapsedSeconds;
+        if (rate <= 0) {
+            return "estimating time...";
+        }
+
+        const remaining = Math.max(0, Math.round((100 - percent) / rate));
+        if (remaining < 60) {
+            return `~${remaining}s remaining`;
+        }
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+        return `~${minutes}m ${seconds}s remaining`;
+    }
+
+    function setStage(percent) {
+        const stages = [
+            document.getElementById('stage1'),
+            document.getElementById('stage2'),
+            document.getElementById('stage3'),
+            document.getElementById('stage4')
+        ];
+        stages.forEach(stage => stage.classList.remove('active'));
+
+        if (percent < 30) {
+            stages[0].classList.add('active');
+        } else if (percent < 60) {
+            stages[0].classList.add('active');
+            stages[1].classList.add('active');
+        } else if (percent < 85) {
+            stages[0].classList.add('active');
+            stages[1].classList.add('active');
+            stages[2].classList.add('active');
+        } else {
+            stages.forEach(stage => stage.classList.add('active'));
+        }
+    }
+
+    function updateUi(data) {
+        const percent = Math.max(0, Math.min(100, Number(data.progress_percent || 0)));
+        const step = data.current_step || 'Processing...';
+        const elapsed = Number(data.elapsed_seconds || 0);
+
+        const progressFill = document.getElementById('progressFill');
+        const percentDisplay = document.getElementById('percentDisplay');
+        const stepText = document.getElementById('stepText');
+        const etaDisplay = document.getElementById('etaDisplay');
+        const tipBox = document.getElementById('tipBox');
+        const progressTrack = document.querySelector('.progress-track');
+
+        progressFill.style.width = `${percent}%`;
+        percentDisplay.textContent = `${percent}%`;
+        stepText.textContent = step;
+        etaDisplay.textContent = formatEta(elapsed, percent);
+        progressTrack.setAttribute('aria-valuenow', String(percent));
+
+        const tipIndex = Math.min(tipMessages.length - 1, Math.floor(pollCount / 8));
+        tipBox.textContent = tipMessages[tipIndex];
+
+        setStage(percent);
+    }
+
     function checkStatus() {
         pollCount++;
-        
+
         if (pollCount > maxPolls) {
             alert('Analysis is taking longer than expected. Please refresh the page or contact support.');
             return;
         }
-        
+
         fetch("{{ url_for('check_analysis_status', map_id=map_id) }}")
             .then(response => {
                 if (!response.ok) {
@@ -36,7 +353,9 @@
                     alert('Error checking analysis status: ' + data.error);
                     return;
                 }
-                
+
+                updateUi(data);
+
                 if (data.analysis_completed) {
                     console.log('Analysis completed, redirecting...');
                     window.location.href = "{{ url_for('check_map') }}";
@@ -46,12 +365,10 @@
             })
             .catch(error => {
                 console.error('Fetch error:', error);
-                // Continue polling even on error, but with a longer delay
                 setTimeout(checkStatus, 5000);
             });
     }
-    
-    // Start polling
+
     checkStatus();
 </script>
 {% endblock %}

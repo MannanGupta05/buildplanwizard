@@ -676,7 +676,11 @@ def register_routes(app):
             # conn = sqlite3.connect(DB_PATH)
             conn = get_connection()
             c = conn.cursor()
-            c.execute('SELECT analysis_status, status, report, payment_status FROM maps WHERE id = %s AND user_id = %s', (map_id, session['user_id']))
+            c.execute('''
+                SELECT analysis_status, status, report, payment_status, created_at
+                FROM maps
+                WHERE id = %s AND user_id = %s
+            ''', (map_id, session['user_id']))
             result = c.fetchone()
             conn.close()
 
@@ -684,7 +688,21 @@ def register_routes(app):
                 print(f"Map not found for map_id: {map_id}, user_id: {session['user_id']}")
                 return jsonify({'analysis_completed': False, 'error': 'Map not found'})
                 
-            analysis_status, map_status, report, payment_status = result
+            analysis_status, map_status, report, payment_status, created_at = result
+
+            elapsed_seconds = 0
+            if created_at:
+                try:
+                    if isinstance(created_at, datetime):
+                        created_dt = created_at
+                    else:
+                        created_text = str(created_at).replace('Z', '+00:00')
+                        created_dt = datetime.fromisoformat(created_text)
+
+                    elapsed = datetime.now(created_dt.tzinfo) - created_dt if created_dt.tzinfo else datetime.now() - created_dt
+                    elapsed_seconds = max(0, int(elapsed.total_seconds()))
+                except Exception:
+                    elapsed_seconds = 0
 
             # If Render restarted mid-analysis, recover by starting analysis again.
             if payment_status == 'completed' and analysis_status in ('pending', 'processing'):
@@ -694,13 +712,34 @@ def register_routes(app):
                     start_analysis_thread(session['user_id'], map_id)
 
             analysis_completed = analysis_status == 'completed'
+
+            if analysis_completed:
+                progress_percent = 100
+                current_step = 'Analysis complete. Preparing results.'
+            elif analysis_status == 'processing':
+                progress_percent = min(95, max(30, 30 + int(elapsed_seconds * 0.6)))
+                if progress_percent < 45:
+                    current_step = 'Reading map and preparing segments.'
+                elif progress_percent < 65:
+                    current_step = 'Extracting measurements and room data.'
+                elif progress_percent < 85:
+                    current_step = 'Validating extracted values against rules.'
+                else:
+                    current_step = 'Finalizing compliance report.'
+            else:
+                progress_percent = min(25, 5 + int(elapsed_seconds * 0.3))
+                current_step = 'Analysis queued. Waiting for worker slot.'
             
             print(f"Analysis status check for map_id {map_id}: analysis_status={analysis_status}, map_status={map_status}, completed={analysis_completed}")
             
             return jsonify({
                 'analysis_completed': analysis_completed,
                 'status': map_status if analysis_completed else 'pending',
-                'report_length': len(report) if report else 0
+                'report_length': len(report) if report else 0,
+                'progress_percent': progress_percent,
+                'current_step': current_step,
+                'elapsed_seconds': elapsed_seconds,
+                'analysis_status': analysis_status
             })
             
         except Exception as e:

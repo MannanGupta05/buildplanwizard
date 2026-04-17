@@ -107,14 +107,6 @@
         line-height: 1;
     }
 
-    .eta-display {
-        font-family: 'JetBrains Mono', monospace;
-        color: #0f766e;
-        font-size: 0.84rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
     .progress-track {
         width: 100%;
         height: 18px;
@@ -231,7 +223,6 @@
 
     <div class="progress-stats">
         <div id="percentDisplay" class="percent-display">0%</div>
-        <div id="etaDisplay" class="eta-display">estimating time...</div>
     </div>
 
     <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Analysis progress">
@@ -260,30 +251,7 @@
         "Tip: Keep this page open. You will be redirected automatically once results are ready.",
         "We prioritize accuracy over speed, so validation can take a little time.",
         "Your uploaded map remains linked only to your account and report.",
-        "If this takes unusually long, the system automatically retries in the background."
     ];
-
-    function formatEta(elapsedSeconds, percent) {
-        if (percent >= 100) {
-            return "done";
-        }
-        if (percent <= 3 || elapsedSeconds <= 0) {
-            return "estimating time...";
-        }
-
-        const rate = percent / elapsedSeconds;
-        if (rate <= 0) {
-            return "estimating time...";
-        }
-
-        const remaining = Math.max(0, Math.round((100 - percent) / rate));
-        if (remaining < 60) {
-            return `~${remaining}s remaining`;
-        }
-        const minutes = Math.floor(remaining / 60);
-        const seconds = remaining % 60;
-        return `~${minutes}m ${seconds}s remaining`;
-    }
 
     function setStage(percent) {
         const stages = [
@@ -311,19 +279,16 @@
     function updateUi(data) {
         const percent = Math.max(0, Math.min(100, Number(data.progress_percent || 0)));
         const step = data.current_step || 'Processing...';
-        const elapsed = Number(data.elapsed_seconds || 0);
 
         const progressFill = document.getElementById('progressFill');
         const percentDisplay = document.getElementById('percentDisplay');
         const stepText = document.getElementById('stepText');
-        const etaDisplay = document.getElementById('etaDisplay');
         const tipBox = document.getElementById('tipBox');
         const progressTrack = document.querySelector('.progress-track');
 
         progressFill.style.width = `${percent}%`;
         percentDisplay.textContent = `${percent}%`;
         stepText.textContent = step;
-        etaDisplay.textContent = formatEta(elapsed, percent);
         progressTrack.setAttribute('aria-valuenow', String(percent));
 
         const tipIndex = Math.min(tipMessages.length - 1, Math.floor(pollCount / 8));

@@ -48,6 +48,38 @@ def _is_sqlite_connection(conn):
     return isinstance(conn, SQLiteConnectionAdapter) or isinstance(conn, sqlite3.Connection)
 
 
+def _column_exists(conn, table_name, column_name):
+    c = conn.cursor()
+    try:
+        if _is_sqlite_connection(conn):
+            c.execute(f"PRAGMA table_info({table_name})")
+            return any(row[1] == column_name for row in c.fetchall())
+
+        c.execute(
+            """
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = %s AND column_name = %s
+            LIMIT 1
+            """,
+            (table_name, column_name),
+        )
+        return c.fetchone() is not None
+    finally:
+        c.close()
+
+
+def _ensure_column(conn, table_name, column_name, column_definition):
+    if _column_exists(conn, table_name, column_name):
+        return
+
+    c = conn.cursor()
+    try:
+        c.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}")
+    finally:
+        c.close()
+
+
 # -------------------------------
 # 🔥 FIXED DATABASE CONNECTION
 # -------------------------------
@@ -161,6 +193,14 @@ def init_db():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (map_id) REFERENCES maps(id)
     )''')
+
+    # Backward-compatible schema migration for already-existing databases.
+    _ensure_column(conn, "users", "is_admin", "BOOLEAN DEFAULT FALSE")
+    _ensure_column(conn, "maps", "analysis_status", "VARCHAR(20) DEFAULT 'pending'")
+    _ensure_column(conn, "payments", "transaction_id", "VARCHAR(100)")
+    _ensure_column(conn, "payments", "payment_method", "VARCHAR(50) DEFAULT 'qr_code'")
+
+    c.execute("UPDATE users SET is_admin = %s WHERE is_admin IS NULL", (False,))
 
 
 

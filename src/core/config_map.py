@@ -23,7 +23,7 @@ gemini_api_keys = [
 if not gemini_api_keys:
     raise ValueError("No Gemini API keys found! Set GEMINI_API_KEY environment variable.")
 
-gemini_model = "gemini-2.5-flash"
+gemini_model = "gemini-2.5-pro"
 
 def get_gemini_model():
     """Get the configured Gemini model name"""
